@@ -1,0 +1,33 @@
+# --- 忽略整个 n8.0 目录 ---
+FFmpeg_n8.0/
+
+# --- n9.0.1 编译产出与垃圾文件排除 ---
+FFmpeg_n9.0.1/windows_build*/
+FFmpeg_n9.0.1/linux_build*/
+FFmpeg_n9.0.1/linux_cross_build*/
+FFmpeg_n9.0.1/android_build*/
+
+# 通用二进制排除
+*.exe
+*.dll
+*.so
+*.o
+*.a
+*.lib
+*.d
+*.tmp
+
+# 配置文件排除
+FFmpeg_n9.0.1/config.h
+FFmpeg_n9.0.1/config.mak
+FFmpeg_n9.0.1/config.log
+FFmpeg_n9.0.1/ffbuild/config.mak
+FFmpeg_n9.0.1/ffbuild/config.log
+
+# AVS3 调试残留
+log_dec.txt
+probestat.tmp
+
+# IDE
+.idea/
+.vscode/
