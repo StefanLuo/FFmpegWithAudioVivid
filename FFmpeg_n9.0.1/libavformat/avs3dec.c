@@ -58,8 +58,12 @@ static int avs3video_probe(const AVProbeData *p)
         }
     }
 
-    if (seq && pic && av_match_ext(p->filename, "avs3")) {
-        ret = AVPROBE_SCORE_MAX;
+    if (seq && pic) {
+        if (av_match_ext(p->filename, "avs3"))
+            return AVPROBE_SCORE_MAX;
+        if (seq > 1 && pic > 1)
+            return AVPROBE_SCORE_MAX / 2 + 1;
+        return AVPROBE_SCORE_EXTENSION;
     }
 
     return ret;

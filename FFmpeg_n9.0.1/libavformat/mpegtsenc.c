@@ -687,6 +687,9 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
 
             if (codec_id == AV_CODEC_ID_AVS3_AUDIO) {
                 put_registration_descriptor(&q, MKTAG('a', 'v', '3', 'a'));
+                *q++ = AVS3_AUDIO_DESCRIPTOR;
+                *q++ = 1;
+                *q++ = 0x00; // library_dependency_idc
             }
 
             if (language != default_language ||
@@ -815,8 +818,12 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
                 put_registration_descriptor(&q, MKTAG('V', 'C', '-', '1'));
             } else if (stream_type == STREAM_TYPE_VIDEO_HEVC && s->strict_std_compliance <= FF_COMPLIANCE_NORMAL) {
                 put_registration_descriptor(&q, MKTAG('H', 'E', 'V', 'C'));
-            } else if (stream_type == STREAM_TYPE_VIDEO_CAVS || stream_type == STREAM_TYPE_VIDEO_AVS2 ||
-                       stream_type == STREAM_TYPE_VIDEO_AVS3) {
+            } else if (stream_type == STREAM_TYPE_VIDEO_AVS3) {
+                put_registration_descriptor(&q, MKTAG('a', 'v', 's', '3'));
+                *q++ = AVS3_VIDEO_DESCRIPTOR;
+                *q++ = 1;
+                *q++ = 0x20; // Default profile_idc for AVS3
+            } else if (stream_type == STREAM_TYPE_VIDEO_CAVS || stream_type == STREAM_TYPE_VIDEO_AVS2) {
                 put_registration_descriptor(&q, MKTAG('A', 'V', 'S', 'V'));
             }
             break;

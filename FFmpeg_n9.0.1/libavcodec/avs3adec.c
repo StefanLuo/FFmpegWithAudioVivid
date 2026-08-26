@@ -2,7 +2,9 @@
  * AVS3A (Audio Vivid) decoder wrapper for FFmpeg
  */
 
+#ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#endif
 
 #include "libavutil/channel_layout.h"
 #include "libavutil/mem.h"
@@ -24,6 +26,8 @@
 #include "avs3a/avs3_prot_dec.h"
 #include "avs3a/avs3_stat_dec.h"
 #include "avs3a/avs3_stat_com.h"
+
+#define AVS3_AUDIO_SYNC_WORD 0xFFF
 
 typedef struct AVS3ADecoderContext {
     AVS3DecoderHandle hAvs3Dec;
@@ -117,13 +121,53 @@ static int avs3a_decode_frame(AVCodecContext *avctx, AVFrame *frame,
         }
         s->initialized = 1;
 
+        /* 关键修复：重置文件指针。因为 Avs3ParseBsFrameHeader 已经移动了指针，
+         * 必须回位后 ReadBitstream 才能读到完整的同步字和帧数据。 */
+        fseek(mem_file, 0, SEEK_SET);
+
         /* Update avctx before ff_get_buffer is called */
         s->sample_rate = s->hAvs3Dec->outputFs;
         s->channels = s->hAvs3Dec->numChansOutput;
         s->frame_size = s->hAvs3Dec->frameLength;
         avctx->sample_rate = s->sample_rate;
+
+        /* 智能声道布局映射：解决 12 通道等高级全景声的驱动兼容性 */
         av_channel_layout_uninit(&avctx->ch_layout);
-        av_channel_layout_default(&avctx->ch_layout, s->channels);
+        switch (s->hAvs3Dec->channelNumConfig) {
+            case CHANNEL_CONFIG_MONO:
+                av_channel_layout_default(&avctx->ch_layout, 1);
+                break;
+            case CHANNEL_CONFIG_STEREO:
+                av_channel_layout_default(&avctx->ch_layout, 2);
+                break;
+            case CHANNEL_CONFIG_MC_4_0:
+                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_4POINT0);
+                break;
+            case CHANNEL_CONFIG_MC_5_1:
+                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_5POINT1);
+                break;
+            case CHANNEL_CONFIG_MC_7_1:
+                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_7POINT1);
+                break;
+            case CHANNEL_CONFIG_MC_5_1_2:
+                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_5POINT1POINT2_BACK);
+                break;
+            case CHANNEL_CONFIG_MC_5_1_4:
+                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_5POINT1POINT4_BACK);
+                break;
+            case CHANNEL_CONFIG_MC_7_1_2:
+                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_7POINT1POINT2);
+                break;
+            case CHANNEL_CONFIG_MC_7_1_4:
+                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_7POINT1POINT4_BACK);
+                break;
+            case CHANNEL_CONFIG_MC_22_2:
+                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_22POINT2);
+                break;
+            default:
+                av_channel_layout_default(&avctx->ch_layout, s->channels);
+                break;
+        }
 
         av_log(avctx, AV_LOG_INFO, "AVS3A bitstream: %d Hz, %d channels, %d samples/frame\n",
                s->sample_rate, s->channels, s->frame_size);
@@ -131,14 +175,37 @@ static int avs3a_decode_frame(AVCodecContext *avctx, AVFrame *frame,
 
     /* Read a full frame (header + payload) */
     if (!ReadBitstream(s->hAvs3Dec, mem_file)) {
-        fclose(mem_file);
-        av_log(avctx, AV_LOG_ERROR, "Failed to read AVS3A bitstream\n");
-        return AVERROR_INVALIDDATA;
+        /* 容错处理：如果当前位置读取失败，尝试在数据中寻找下一个 AVS3 同步字 (0x1FF) */
+        uint8_t sync_search[2];
+        fseek(mem_file, 0, SEEK_SET);
+        int found = 0;
+        while (fread(sync_search, 1, 2, mem_file) == 2) {
+            uint16_t sw = ((uint16_t)sync_search[0] << 4) | (sync_search[1] >> 4);
+            if (sw == AVS3_AUDIO_SYNC_WORD) {
+                fseek(mem_file, -2, SEEK_CUR);
+                if (ReadBitstream(s->hAvs3Dec, mem_file)) {
+                    found = 1;
+                    break;
+                }
+            }
+            fseek(mem_file, -1, SEEK_CUR);
+        }
+
+        if (!found) {
+            fclose(mem_file);
+            av_log(avctx, AV_LOG_ERROR, "Failed to read AVS3A bitstream after sync search\n");
+            return AVERROR_INVALIDDATA;
+        }
     }
     fclose(mem_file);
 
     n_channels = s->hAvs3Dec->numChansOutput;
     frame_len = s->hAvs3Dec->frameLength;
+
+    if (frame_len <= 0 || n_channels <= 0) {
+        av_log(avctx, AV_LOG_ERROR, "Invalid frame parameters: len=%d, chans=%d\n", frame_len, n_channels);
+        return AVERROR_INVALIDDATA;
+    }
 
     output_buf = (short *)av_malloc(frame_len * n_channels * sizeof(short));
     if (!output_buf)
@@ -146,6 +213,7 @@ static int avs3a_decode_frame(AVCodecContext *avctx, AVFrame *frame,
 
     /* Decode one frame */
     Avs3Decode(s->hAvs3Dec, output_buf);
+    av_log(avctx, AV_LOG_DEBUG, "Decoded %d samples for %d channels\n", frame_len, n_channels);
 
     frame->nb_samples = frame_len;
     if ((ret = ff_get_buffer(avctx, frame, 0)) < 0) {

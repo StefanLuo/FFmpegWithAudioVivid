@@ -225,6 +225,8 @@ https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/
 #define AC3_DESCRIPTOR               0x6a /* AC-3_descriptor */
 #define ENHANCED_AC3_DESCRIPTOR      0x7a /* enhanced_AC-3_descriptor */
 #define DTS_DESCRIPTOR               0x7b
+#define AVS3_AUDIO_DESCRIPTOR        0x7c
+#define AVS3_VIDEO_DESCRIPTOR        0x7e
 #define DVB_EXTENSION_DESCRIPTOR     0x7f
 
 /* DVB descriptor_tag_extension values from

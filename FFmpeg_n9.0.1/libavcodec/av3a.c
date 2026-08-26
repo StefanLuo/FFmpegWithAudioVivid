@@ -99,6 +99,7 @@ uint16_t avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf,
             break;
         case CHANNEL_CONFIG_MC_4_0:
             channels = 4;
+            channel_layout = AV_CH_LAYOUT_4POINT0;
             break;
         case CHANNEL_CONFIG_MC_5_1:
             channels = 6;
@@ -110,15 +111,19 @@ uint16_t avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf,
             break;
         case CHANNEL_CONFIG_MC_5_1_2:
             channels = 8;
+            channel_layout = AV_CH_LAYOUT_5POINT1POINT2_BACK;
             break;
         case CHANNEL_CONFIG_MC_5_1_4:
             channels = 10;
+            channel_layout = AV_CH_LAYOUT_5POINT1POINT4_BACK;
             break;
         case CHANNEL_CONFIG_MC_7_1_2:
             channels = 10;
+            channel_layout = AV_CH_LAYOUT_7POINT1POINT2;
             break;
         case CHANNEL_CONFIG_MC_7_1_4:
             channels = 12;
+            channel_layout = AV_CH_LAYOUT_7POINT1POINT4_BACK;
             break;
         case CHANNEL_CONFIG_MC_22_2:
             channels = 24;

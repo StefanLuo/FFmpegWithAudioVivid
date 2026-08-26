@@ -9916,6 +9916,7 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('s','b','g','p'), mov_read_sbgp },
 { MKTAG('h','v','c','C'), mov_read_glbl },
 { MKTAG('v','v','c','C'), mov_read_glbl },
+{ MKTAG('a','v','3','C'), mov_read_glbl },
 { MKTAG('u','u','i','d'), mov_read_uuid },
 { MKTAG('C','i','n', 0x8e), mov_read_targa_y216 },
 { MKTAG('f','r','e','e'), mov_read_free },

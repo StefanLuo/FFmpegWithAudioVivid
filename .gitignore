@@ -7,6 +7,18 @@ FFmpeg_n9.0.1/linux_build*/
 FFmpeg_n9.0.1/linux_cross_build*/
 FFmpeg_n9.0.1/android_build*/
 
+# --- 第三方库构建目录排除 ---
+uavs3d/build_msys/
+uavs3e/build_msys/
+davs2/build/linux/config.h
+davs2/build/linux/config.mak
+davs2/build/linux/config.log
+davs2/build/linux/davs2.pc
+xavs2/build/linux/config.h
+xavs2/build/linux/config.mak
+xavs2/build/linux/config.log
+xavs2/build/linux/xavs2.pc
+
 # 通用二进制排除
 *.exe
 *.dll
@@ -16,6 +28,7 @@ FFmpeg_n9.0.1/android_build*/
 *.lib
 *.d
 *.tmp
+*.pc
 
 # 配置文件排除
 FFmpeg_n9.0.1/config.h

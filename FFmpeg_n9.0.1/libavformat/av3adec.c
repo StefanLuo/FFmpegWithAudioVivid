@@ -202,35 +202,31 @@ static int get_av3a_payload(AVFormatContext *s)
 
 static int av3a_probe(const AVProbeData *p)
 {
+    int count = 0;
+    const uint8_t *buf = p->buf;
+    const uint8_t *end = p->buf + p->buf_size - 4;
 
-    uint16_t frame_sync_word;
-    const char *ptr_ext = NULL;
-    uint16_t lval = ((uint16_t)(p->buf[0]));
-    uint16_t rval = ((uint16_t)(p->buf[1]));
-    char ext_str[5]; // .av3a
-    int len = 0;
-    int len_ext = 0;
-    frame_sync_word = ((lval << 8) | rval) >> 4;
+    while (buf < end) {
+        uint16_t sw = ((uint16_t)buf[0] << 4) | (buf[1] >> 4);
+        uint8_t codec_id = buf[1] & 0x0F;
+        uint8_t sr_idx = (buf[2] >> 4) & 0x0F;
 
-    /* check sync word */
-    if (frame_sync_word == AVS3_AUDIO_SYNC_WORD)
-    {
-        len_ext = strlen(".av3a");
-        av_assert0(len_ext == 5);
-        if (p->filename != NULL)
-        {
-            len = strlen(p->filename);
-            if (len >= len_ext)
-            {
-                memcpy(ext_str, p->filename + len - len_ext, len_ext);
-                ptr_ext = strrchr(ext_str, '.');
-            }
+        /* 严苛的三重验证：同步字(FFF) + CodecID(2) + 采样率合法性(0-8) */
+        if (sw == AVS3_AUDIO_SYNC_WORD && codec_id == 0x02 && sr_idx <= 0x08) {
+            count++;
+            buf += 256; // 跳过大约一帧的长度继续寻找下一个指纹
+        } else {
+            buf++;
         }
+    }
 
-        if (ptr_ext != NULL && strcmp(ptr_ext, ".av3a") == 0)
-        {
+    if (count > 0) {
+        /* 如果后缀匹配且指纹正确，满分 */
+        if (av_match_ext(p->filename, "av3a"))
             return AVPROBE_SCORE_MAX;
-        }
+        /* 如果后缀不匹配，但找到了多个极度严苛的 AVS3 指纹，且文件不是 .mp3 后缀 */
+        if (count >= 3 && !av_match_ext(p->filename, "mp3"))
+            return AVPROBE_SCORE_EXTENSION + 10;
     }
 
     return 0;

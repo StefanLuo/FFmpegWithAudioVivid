@@ -911,6 +911,8 @@ static const StreamType REGD_types[] = {
     { MKTAG('V', 'C', '-', '1'), AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_VC1   },
     { MKTAG('O', 'p', 'u', 's'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_OPUS  },
     { MKTAG('a', 'v', '3', 'a'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_AVS3_AUDIO},
+    { MKTAG('a', 'v', 's', '3'), AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_AVS3       },
+    { MKTAG('a', 'v', 's', '2'), AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_AVS2       },
     { 0 },
 };
 
@@ -925,6 +927,8 @@ static const StreamType DESC_types[] = {
     { AC3_DESCRIPTOR,           AVMEDIA_TYPE_AUDIO,    AV_CODEC_ID_AC3          },
     { ENHANCED_AC3_DESCRIPTOR,  AVMEDIA_TYPE_AUDIO,    AV_CODEC_ID_EAC3         },
     { DTS_DESCRIPTOR,           AVMEDIA_TYPE_AUDIO,    AV_CODEC_ID_DTS          },
+    { AVS3_AUDIO_DESCRIPTOR,    AVMEDIA_TYPE_AUDIO,    AV_CODEC_ID_AVS3_AUDIO   },
+    { AVS3_VIDEO_DESCRIPTOR,    AVMEDIA_TYPE_VIDEO,    AV_CODEC_ID_AVS3         },
     { TELETEXT_DESCRIPTOR,      AVMEDIA_TYPE_SUBTITLE, AV_CODEC_ID_DVB_TELETEXT },
     { SUBTITLING_DESCRIPTOR,    AVMEDIA_TYPE_SUBTITLE, AV_CODEC_ID_DVB_SUBTITLE },
     { 0 },
@@ -971,10 +975,10 @@ static int mpegts_set_stream_info(AVStream *st, PESContext *pes,
     st->codecpar->codec_tag = pes->stream_type;
 
     mpegts_find_stream_type(st, pes->stream_type, ISO_types);
-    if (pes->stream_type == STREAM_TYPE_AUDIO_MPEG2 || pes->stream_type == STREAM_TYPE_AUDIO_AAC)
-        sti->request_probe = 50;
-    if (pes->stream_type == STREAM_TYPE_PRIVATE_DATA)
+    if (pes->stream_type == STREAM_TYPE_AUDIO_MPEG2 || pes->stream_type == STREAM_TYPE_AUDIO_AAC ||
+        pes->stream_type == STREAM_TYPE_PRIVATE_DATA || pes->stream_type == 0x06)
         sti->request_probe = AVPROBE_SCORE_STREAM_RETRY;
+
     if ((prog_reg_desc == AV_RL32("HDMV") ||
          prog_reg_desc == AV_RL32("HDPR")) &&
         st->codecpar->codec_id == AV_CODEC_ID_NONE) {
@@ -1111,6 +1115,26 @@ static int new_pes_packet(PESContext *pes, AVPacket *pkt)
         pkt->stream_index = pes->st->index;
     pkt->pts = pes->pts;
     pkt->dts = pes->dts;
+
+    /* 强制 AVS3/AV3A 内容识别：处理伪装成 MP3 或私有数据的流
+     * 极度严苛验证：同步字(12位) + CodecID(4位) + 采样率(4位)
+     * AVS3 Audio 的 0xFFF2 是其核心指纹 */
+    if (pkt->size > 4 && (pes->stream_type == 0x04 || pes->stream_type == 0x06)) {
+        uint16_t sw = ((uint16_t)pkt->data[0] << 4) | (pkt->data[1] >> 4);
+        uint8_t codec_id = pkt->data[1] & 0x0F;
+        uint8_t sr_idx = (pkt->data[2] >> 4) & 0x0F;
+
+        if (sw == 0xFFF && codec_id == 0x02 && sr_idx <= 0x08) {
+             if (pes->st->codecpar->codec_id != AV_CODEC_ID_AVS3_AUDIO) {
+                 av_log(pes->stream, AV_LOG_INFO, "Auto-detected AudioVivid stream (mislabeled as 0x%02x)\n", pes->stream_type);
+                 pes->st->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+                 pes->st->codecpar->codec_id   = AV_CODEC_ID_AVS3_AUDIO;
+                 ffstream(pes->st)->need_context_update = 1;
+                 ffstream(pes->st)->request_probe = 0;
+             }
+        }
+    }
+
     /* store position of first TS packet of this PES packet */
     pkt->pos   = pes->ts_packet_pos;
     pkt->flags = pes->flags;
@@ -2191,6 +2215,16 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
                 sti->need_context_update = 1;
             }
         }
+        break;
+    case AVS3_AUDIO_DESCRIPTOR:
+        st->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+        st->codecpar->codec_id   = AV_CODEC_ID_AVS3_AUDIO;
+        sti->request_probe = 0;
+        break;
+    case AVS3_VIDEO_DESCRIPTOR:
+        st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+        st->codecpar->codec_id   = AV_CODEC_ID_AVS3;
+        sti->request_probe = 0;
         break;
     case SUBTITLING_DESCRIPTOR:
         {
