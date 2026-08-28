@@ -39,9 +39,15 @@
 #include "intrinsic.h"
 #include <string.h>
 #include <mmintrin.h>
+#if (defined(__i386__) || defined(__x86_64__))
 #include <emmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <tmmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <smmintrin.h>
+#endif
 
 
 static ALIGN16(int8_t tab_coeff_mode_5[8][16]) = {

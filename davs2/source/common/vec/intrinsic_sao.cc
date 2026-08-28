@@ -34,11 +34,24 @@
 
 
 #include "intrinsic.h"
-
+#if (defined(__i386__) || defined(__x86_64__)) && !defined(__ANDROID__)
 #include <mmintrin.h>
 #include <emmintrin.h>
 #include <tmmintrin.h>
 #include <smmintrin.h>
+#if defined(__AVX__) || defined(__AVX2__)
+#include <immintrin.h>
+#endif
+#endif
+
+#if (defined(__i386__) || defined(__x86_64__))
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
+#endif
 
 #ifdef _MSC_VER
 #pragma warning(disable:4244)  // TODO: ÐÞÕý±àÒëwarning

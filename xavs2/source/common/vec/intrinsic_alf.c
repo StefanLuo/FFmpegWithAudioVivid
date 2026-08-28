@@ -39,9 +39,15 @@
 #include "intrinsic.h"
 
 #include <mmintrin.h>
+#if (defined(__i386__) || defined(__x86_64__))
 #include <emmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <tmmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <smmintrin.h>
+#endif
 
 
 void alf_flt_one_block_sse128(pel_t *p_dst, int i_dst, pel_t *p_src, int i_src,

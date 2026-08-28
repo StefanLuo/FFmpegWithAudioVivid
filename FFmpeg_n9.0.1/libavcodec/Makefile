@@ -1246,7 +1246,7 @@ OBJS-$(CONFIG_AVS2_PARSER)             += avs2.o avs2_parser.o
 OBJS-$(CONFIG_AVS3_PARSER)             += avs3_parser.o
 OBJS-$(CONFIG_AV3A_PARSER)             += av3a.o av3a_parser.o
 OBJS-$(CONFIG_AVS3_AUDIO_DECODER)      += avs3adec.o avs3a/activation_func.o avs3a/avs3_bitstream_dec.o avs3a/avs3_com.o avs3a/avs3_dec.o avs3a/avs3_hoa_com.o avs3a/avs3_hoa_dec.o avs3a/avs3_init_dec.o avs3a/avs3_io_dec.o avs3a/avs3_mc_com.o avs3a/avs3_mc_dec.o avs3a/avs3_metadata_dec.o avs3a/avs3_mix_dec.o avs3a/avs3_mono_dec.o avs3a/avs3_rom_com.o avs3a/avs3_stereo_com.o avs3a/avs3_stereo_dec.o avs3a/bwe_com.o avs3a/bwe_dec.o avs3a/cnn_layer.o avs3a/fd_spectrum_shaping_com.o avs3a/fd_spectrum_shaping_dec.o avs3a/fft.o avs3a/latent_quant.o avs3a/load_free_model.o avs3a/lsf_dec.o avs3a/mcr_com.o avs3a/mdct.o avs3a/mdct_dequant_decode.o avs3a/noise_filling.o avs3a/range_coder.o avs3a/tns.o avs3a/tools.o avs3a/avs3_write_wav.o
-OBJS += bsf_graph_internal.o bsfgraph.o fmtconvert.o x86/fmtconvert.o
+OBJS += bsf_graph_internal.o bsfgraph.o
 OBJS-$(CONFIG_BMP_PARSER)              += bmp_parser.o
 OBJS-$(CONFIG_CAVSVIDEO_PARSER)        += cavs_parser.o
 OBJS-$(CONFIG_COOK_PARSER)             += cook_parser.o
@@ -1405,6 +1405,7 @@ HOSTPROGS = aacps_tablegen                                              \
             sinewin_fixed_tablegen                                      \
 
 CLEANFILES = *_tables.c *_tables.h *_tablegen$(HOSTEXESUF)
+CLEANFILES += avs3a/*.o avs3a/*.d
 
 $(SUBDIR)tests/dct$(EXESUF): $(SUBDIR)dctref.o $(SUBDIR)aandcttab.o
 $(SUBDIR)dv_tablegen$(HOSTEXESUF): $(SUBDIR)dvdata_host.o

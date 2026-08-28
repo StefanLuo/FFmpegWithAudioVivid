@@ -98,7 +98,7 @@ struct xavs2_threadpool_t {
 static INLINE
 int  xavs2_thread_set_cpu(int idx_core)
 {
-#if HAVE_POSIXTHREAD && (SYS_WINDOWS || SYS_LINUX) && !__MINGW32__
+#if HAVE_POSIXTHREAD && (SYS_WINDOWS || SYS_LINUX) && !__MINGW32__ && !defined(__ANDROID__)
     cpu_set_t mask;
     CPU_ZERO(&mask);
 
@@ -118,7 +118,7 @@ int  xavs2_thread_set_cpu(int idx_core)
 static INLINE
 int  xavs2_thread_is_on_cpu(int idx_core)
 {
-#if HAVE_POSIXTHREAD && (SYS_WINDOWS || SYS_LINUX) && !__MINGW32__
+#if HAVE_POSIXTHREAD && (SYS_WINDOWS || SYS_LINUX) && !__MINGW32__ && !defined(__ANDROID__)
     cpu_set_t get;
 
     CPU_ZERO(&get);

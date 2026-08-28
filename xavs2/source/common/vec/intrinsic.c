@@ -39,9 +39,15 @@
 #include "intrinsic.h"
 
 #include <mmintrin.h>
+#if (defined(__i386__) || defined(__x86_64__))
 #include <emmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <tmmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <smmintrin.h>
+#endif
 
 ALIGN32(const int8_t intrinsic_mask[15][16]) = {
     { -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },

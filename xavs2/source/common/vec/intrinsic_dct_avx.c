@@ -38,8 +38,12 @@
 
 #include <xmmintrin.h>  // SSE
 #include <pmmintrin.h>  // SSE3
-#include <tmmintrin.h>  // SSSE3
-#include <immintrin.h>  // AVX and AVX2
+#if (defined(__i386__) || defined(__x86_64__))
+#include <tmmintrin.h>
+#endif  // SSSE3
+#if (defined(__i386__) || defined(__x86_64__))
+#include <immintrin.h>
+#endif  // AVX and AVX2
 
 #include "../basic_types.h"
 #include "intrinsic.h"

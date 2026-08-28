@@ -36,10 +36,18 @@
  */
 
 #include <mmintrin.h>
+#if (defined(__i386__) || defined(__x86_64__))
 #include <emmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <tmmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <smmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <immintrin.h>
+#endif
 
 #include "../common.h"
 #include "intrinsic.h"

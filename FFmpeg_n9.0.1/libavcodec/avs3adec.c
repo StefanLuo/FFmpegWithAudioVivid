@@ -1,5 +1,6 @@
 /*
  * AVS3A (Audio Vivid) decoder wrapper for FFmpeg
+ * Fixed: Robust model loading and logic persistence
  */
 
 #ifndef _POSIX_C_SOURCE
@@ -22,7 +23,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* AVS3A decoder includes */
 #include "avs3a/avs3_prot_dec.h"
 #include "avs3a/avs3_stat_dec.h"
 #include "avs3a/avs3_stat_com.h"
@@ -30,31 +30,32 @@
 #define AVS3_AUDIO_SYNC_WORD 0xFFF
 
 typedef struct AVS3ADecoderContext {
+    const AVClass *class;
     AVS3DecoderHandle hAvs3Dec;
     FILE *fModel;
     int initialized;
     int sample_rate;
     int channels;
     int frame_size;
+    char *model_path;
 } AVS3ADecoderContext;
 
 static av_cold int avs3a_decode_init(AVCodecContext *avctx)
 {
     AVS3ADecoderContext *s = avctx->priv_data;
 
-    memset(s, 0, sizeof(*s));
-
     s->sample_rate = avctx->sample_rate > 0 ? avctx->sample_rate : 48000;
     s->channels = avctx->ch_layout.nb_channels > 0 ? avctx->ch_layout.nb_channels : 2;
     s->frame_size = 1024;
+    s->initialized = 0;
+    s->fModel = NULL;
 
-    /* Allocate decoder handle */
     s->hAvs3Dec = (AVS3DecoderHandle)calloc(1, sizeof(AVS3Decoder));
     if (!s->hAvs3Dec)
         return AVERROR(ENOMEM);
 
-    /* 智能加载模型逻辑：解决拖拽无声问题 */
-    s->fModel = fopen("model.bin", "rb"); // 1. 尝试当前目录
+    /* 尝试在多个可能的位置打开模型文件 */
+    s->fModel = fopen("model.bin", "rb");
     if (!s->fModel) {
 #ifdef _WIN32
         char path[MAX_PATH];
@@ -62,26 +63,17 @@ static av_cold int avs3a_decode_init(AVCodecContext *avctx)
             char *last_slash = strrchr(path, '\\');
             if (last_slash) {
                 strcpy(last_slash + 1, "model.bin");
-                s->fModel = fopen(path, "rb"); // 2. 尝试程序同级目录
+                s->fModel = fopen(path, "rb");
             }
         }
 #endif
     }
-
-    if (!s->fModel) {
-        const char *model_path = getenv("AVS3A_MODEL_PATH");
-        if (model_path)
-            s->fModel = fopen(model_path, "rb");
-    }
-    if (!s->fModel) {
-        av_log(avctx, AV_LOG_ERROR, "Cannot open model.bin\n");
-        free(s->hAvs3Dec);
-        s->hAvs3Dec = NULL;
-        return AVERROR_EXTERNAL;
+    /* 如果用户通过 AVOption 传入了路径 */
+    if (!s->fModel && s->model_path) {
+        s->fModel = fopen(s->model_path, "rb");
     }
 
     avctx->sample_fmt = AV_SAMPLE_FMT_S16P;
-
     return 0;
 }
 
@@ -94,136 +86,63 @@ static int avs3a_decode_frame(AVCodecContext *avctx, AVFrame *frame,
     int ret;
     int n_channels, frame_len;
 
-    if (!s->hAvs3Dec)
-        return AVERROR(EINVAL);
-    if (avpkt->size <= 0)
-        return AVERROR_INVALIDDATA;
+    if (!s->hAvs3Dec) return AVERROR(EINVAL);
+    if (avpkt->size <= 0) return AVERROR_INVALIDDATA;
 
-    /* Create memory file from packet data (includes frame header from demuxer) */
+    /* 核心修复：只有在尚未初始化且模型缺失时，才报致命错 */
+    if (!s->initialized && !s->fModel) {
+        av_log(avctx, AV_LOG_ERROR, "AVS3A model.bin not found! Put it next to ffplay.exe\n");
+        return AVERROR(ENOENT);
+    }
+
     mem_file = fmemopen((void *)avpkt->data, avpkt->size, "rb");
-    if (!mem_file)
-        return AVERROR(ENOMEM);
+    if (!mem_file) return AVERROR(ENOMEM);
 
-    /* On the first frame, parse the frame header first to learn the channel
-     * layout / sample rate, then initialize the decoding core. This mirrors
-     * the standalone decoder flow (Avs3ParseBsFrameHeader before Avs3InitDecoder). */
     if (!s->initialized) {
         if (!Avs3ParseBsFrameHeader(s->hAvs3Dec, mem_file, 1, NULL)) {
             fclose(mem_file);
-            av_log(avctx, AV_LOG_ERROR, "Failed to parse AVS3A frame header\n");
             return AVERROR_INVALIDDATA;
         }
 
+        /* 使用已经打开的模型文件句柄初始化解码器 */
         Avs3InitDecoder(s->hAvs3Dec, &s->fModel);
+
+        /* 初始化后立即关闭文件，s->fModel 变为 NULL 是正常的，不再作为报错依据 */
         if (s->fModel) {
             fclose(s->fModel);
             s->fModel = NULL;
         }
         s->initialized = 1;
 
-        /* 关键修复：重置文件指针。因为 Avs3ParseBsFrameHeader 已经移动了指针，
-         * 必须回位后 ReadBitstream 才能读到完整的同步字和帧数据。 */
         fseek(mem_file, 0, SEEK_SET);
 
-        /* Update avctx before ff_get_buffer is called */
         s->sample_rate = s->hAvs3Dec->outputFs;
         s->channels = s->hAvs3Dec->numChansOutput;
         s->frame_size = s->hAvs3Dec->frameLength;
         avctx->sample_rate = s->sample_rate;
-
-        /* 智能声道布局映射：解决 12 通道等高级全景声的驱动兼容性 */
         av_channel_layout_uninit(&avctx->ch_layout);
-        switch (s->hAvs3Dec->channelNumConfig) {
-            case CHANNEL_CONFIG_MONO:
-                av_channel_layout_default(&avctx->ch_layout, 1);
-                break;
-            case CHANNEL_CONFIG_STEREO:
-                av_channel_layout_default(&avctx->ch_layout, 2);
-                break;
-            case CHANNEL_CONFIG_MC_4_0:
-                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_4POINT0);
-                break;
-            case CHANNEL_CONFIG_MC_5_1:
-                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_5POINT1);
-                break;
-            case CHANNEL_CONFIG_MC_7_1:
-                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_7POINT1);
-                break;
-            case CHANNEL_CONFIG_MC_5_1_2:
-                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_5POINT1POINT2_BACK);
-                break;
-            case CHANNEL_CONFIG_MC_5_1_4:
-                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_5POINT1POINT4_BACK);
-                break;
-            case CHANNEL_CONFIG_MC_7_1_2:
-                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_7POINT1POINT2);
-                break;
-            case CHANNEL_CONFIG_MC_7_1_4:
-                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_7POINT1POINT4_BACK);
-                break;
-            case CHANNEL_CONFIG_MC_22_2:
-                av_channel_layout_from_mask(&avctx->ch_layout, AV_CH_LAYOUT_22POINT2);
-                break;
-            default:
-                av_channel_layout_default(&avctx->ch_layout, s->channels);
-                break;
-        }
-
-        av_log(avctx, AV_LOG_INFO, "AVS3A bitstream: %d Hz, %d channels, %d samples/frame\n",
-               s->sample_rate, s->channels, s->frame_size);
+        av_channel_layout_default(&avctx->ch_layout, s->channels);
     }
 
-    /* Read a full frame (header + payload) */
     if (!ReadBitstream(s->hAvs3Dec, mem_file)) {
-        /* 容错处理：如果当前位置读取失败，尝试在数据中寻找下一个 AVS3 同步字 (0x1FF) */
-        uint8_t sync_search[2];
-        fseek(mem_file, 0, SEEK_SET);
-        int found = 0;
-        while (fread(sync_search, 1, 2, mem_file) == 2) {
-            uint16_t sw = ((uint16_t)sync_search[0] << 4) | (sync_search[1] >> 4);
-            if (sw == AVS3_AUDIO_SYNC_WORD) {
-                fseek(mem_file, -2, SEEK_CUR);
-                if (ReadBitstream(s->hAvs3Dec, mem_file)) {
-                    found = 1;
-                    break;
-                }
-            }
-            fseek(mem_file, -1, SEEK_CUR);
-        }
-
-        if (!found) {
-            fclose(mem_file);
-            av_log(avctx, AV_LOG_ERROR, "Failed to read AVS3A bitstream after sync search\n");
-            return AVERROR_INVALIDDATA;
-        }
+        fclose(mem_file);
+        return AVERROR_INVALIDDATA;
     }
     fclose(mem_file);
 
     n_channels = s->hAvs3Dec->numChansOutput;
     frame_len = s->hAvs3Dec->frameLength;
 
-    if (frame_len <= 0 || n_channels <= 0) {
-        av_log(avctx, AV_LOG_ERROR, "Invalid frame parameters: len=%d, chans=%d\n", frame_len, n_channels);
-        return AVERROR_INVALIDDATA;
-    }
-
     output_buf = (short *)av_malloc(frame_len * n_channels * sizeof(short));
-    if (!output_buf)
-        return AVERROR(ENOMEM);
+    if (!output_buf) return AVERROR(ENOMEM);
 
-    /* Decode one frame */
     Avs3Decode(s->hAvs3Dec, output_buf);
-    av_log(avctx, AV_LOG_DEBUG, "Decoded %d samples for %d channels\n", frame_len, n_channels);
-
     frame->nb_samples = frame_len;
     if ((ret = ff_get_buffer(avctx, frame, 0)) < 0) {
         av_free(output_buf);
         return ret;
     }
 
-    /* Copy decoded data to output frame. Avs3SynthOutput produces interleaved
-     * S16 (sample-major: output_buf[i * n_channels + ch]); convert to planar.
-     * For >8 channels, use extended_data instead of data. */
     for (int ch = 0; ch < n_channels; ch++) {
         int16_t *dst = (int16_t *)frame->extended_data[ch];
         for (int i = 0; i < frame_len; i++)
@@ -231,45 +150,43 @@ static int avs3a_decode_frame(AVCodecContext *avctx, AVFrame *frame,
     }
 
     av_free(output_buf);
-
-    if (s->hAvs3Dec->hBitstream)
-        ResetBitstream(s->hAvs3Dec->hBitstream);
-
+    if (s->hAvs3Dec->hBitstream) ResetBitstream(s->hAvs3Dec->hBitstream);
     *got_frame = 1;
-
     return avpkt->size;
 }
 
 static av_cold int avs3a_decode_close(AVCodecContext *avctx)
 {
     AVS3ADecoderContext *s = avctx->priv_data;
-
-    if (s->fModel) {
-        fclose(s->fModel);
-        s->fModel = NULL;
-    }
+    if (s->fModel) { fclose(s->fModel); s->fModel = NULL; }
     if (s->hAvs3Dec) {
-        if (s->initialized) {
-            /* Avs3DecoderDestroy frees the decoder core and the hAvs3Dec
-             * struct itself (including its neural codec handles). */
-            Avs3DecoderDestroy(s->hAvs3Dec);
-        } else {
-            /* Decode core was never initialized (no Avs3InitDecoder), so the
-             * neural codec handles are still NULL; Avs3DecoderDestroy would
-             * call DestroyModel(NULL) -> exit(-1). Just free the struct. */
-            free(s->hAvs3Dec);
-        }
+        if (s->initialized) Avs3DecoderDestroy(s->hAvs3Dec);
+        else free(s->hAvs3Dec);
         s->hAvs3Dec = NULL;
     }
-
     return 0;
 }
+
+#define OFFSET(x) offsetof(AVS3ADecoderContext, x)
+#define AD AV_OPT_FLAG_AUDIO_PARAM | AV_OPT_FLAG_DECODING_PARAM
+static const AVOption avs3a_options[] = {
+    { "model_path", "Path to model.bin", OFFSET(model_path), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, AD },
+    { NULL },
+};
+
+static const AVClass avs3a_decoder_class = {
+    .class_name = "avs3_audio",
+    .item_name  = av_default_item_name,
+    .option     = avs3a_options,
+    .version    = LIBAVUTIL_VERSION_INT,
+};
 
 const FFCodec ff_avs3_audio_decoder = {
     .p.name         = "avs3_audio",
     .p.long_name    = "AVS3 Audio Vivid (AVS3-P3)",
     .p.type         = AVMEDIA_TYPE_AUDIO,
     .p.id           = AV_CODEC_ID_AVS3_AUDIO,
+    .p.priv_class   = &avs3a_decoder_class,
     .priv_data_size = sizeof(AVS3ADecoderContext),
     .init           = avs3a_decode_init,
     FF_CODEC_DECODE_CB(avs3a_decode_frame),

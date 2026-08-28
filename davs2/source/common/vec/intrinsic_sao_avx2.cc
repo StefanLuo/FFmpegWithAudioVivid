@@ -30,14 +30,28 @@
  *    For more information, contact us at sswang @ pku.edu.cn.
  */
 
+#if (defined(__i386__) || defined(__x86_64__))
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
+#endif
+
+#include "../common.h"
+#include "intrinsic.h"
+#if (defined(__i386__) || defined(__x86_64__)) && !defined(__ANDROID__)
 #include <mmintrin.h>
 #include <emmintrin.h>
 #include <tmmintrin.h>
 #include <smmintrin.h>
+#if defined(__AVX__) || defined(__AVX2__)
 #include <immintrin.h>
-
-#include "../common.h"
-#include "intrinsic.h"
+#endif
+#endif
 
 #if !HIGH_BIT_DEPTH
 #ifdef _MSC_VER

@@ -38,9 +38,15 @@
 #include "intrinsic.h"
 
 #include <mmintrin.h>
+#if (defined(__i386__) || defined(__x86_64__))
 #include <emmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <tmmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <smmintrin.h>
+#endif
 
 
 void xavs2_pixel_average_sse128(pel_t *dst, int i_dst, pel_t *src1, int i_src1, pel_t *src2, int i_src2, int width, int height)

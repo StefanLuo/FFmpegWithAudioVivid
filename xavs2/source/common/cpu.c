@@ -355,7 +355,10 @@ uint32_t xavs2_cpu_detect(void)
 #if SYS_LINUX && !(defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7__))
 /* ---------------------------------------------------------------------------
  */
+#if !defined(__ANDROID__)
+#if !defined(__ANDROID__)
 int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);
+#endif
 #endif
 
 /* ---------------------------------------------------------------------------
@@ -368,7 +371,8 @@ int xavs2_cpu_num_processors(void)
     return 2;
 #elif SYS_WINDOWS
     return xavs2_thread_num_processors_np();
-#elif SYS_LINUX
+#elif SYS_LINUX && !defined(__ANDROID__)
+#if !defined(__ANDROID__)
     unsigned int bit;
     int np = 0;
     cpu_set_t p_aff;
@@ -379,6 +383,9 @@ int xavs2_cpu_num_processors(void)
         np += (((uint8_t *)& p_aff)[bit / 8] >> (bit % 8)) & 1;
     }
     return np;
+#else
+    return 8; // Default for Android
+#endif
 
 #elif SYS_BEOS
     system_info info;

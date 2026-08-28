@@ -38,9 +38,15 @@
 #include "intrinsic.h"
 
 #include <mmintrin.h>
+#if (defined(__i386__) || defined(__x86_64__))
 #include <emmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <tmmintrin.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__))
 #include <smmintrin.h>
+#endif
 
 void deblock_edge_ver_sse128(pel_t *SrcPtr, int stride, int Alpha, int Beta, uint8_t *flt_flag)
 {

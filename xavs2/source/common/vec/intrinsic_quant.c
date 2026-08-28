@@ -39,11 +39,17 @@
 
 
 #include <mmintrin.h>
+#if (defined(__i386__) || defined(__x86_64__))
 #include <emmintrin.h>
+#endif
 #include <xmmintrin.h>  // SSE
 #include <pmmintrin.h>  // SSE3
-#include <tmmintrin.h>  // SSSE3
+#if (defined(__i386__) || defined(__x86_64__))
+#include <tmmintrin.h>
+#endif  // SSSE3
+#if (defined(__i386__) || defined(__x86_64__))
 #include <smmintrin.h>
+#endif
 
 int quant_c_sse128(coeff_t *coef, const int i_coef, const int scale, const int shift, const int add)
 {

@@ -49,8 +49,10 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#if (ARCH_X86 || ARCH_X86_64)
+#if (ARCH_X86 || ARCH_X86_64) && !defined(__ANDROID__)
+#if (defined(__i386__) || defined(__x86_64__)) && !defined(__ANDROID__)
 #include <xmmintrin.h>
+#endif
 #endif
 
 /**
@@ -277,8 +279,8 @@ enum PU_PART {
  * DCT pattern */
 enum dct_pattern_e {
     DCT_DEAULT,      /* default */
-    DCT_HALF,        /* ·½ÐÎ¿é½ö×óÉÏ½Ç1/2¿í¸ß£¨Ãæ»ý1/4£©£¬ ·Ç·½ÐÎ¿éÎª×óÉÏ½Ç1/2£¨Ãæ»ý1/2£© */
-    DCT_QUAD,        /* ·½ÐÎ¿é½ö×óÉÏ½Ç1/4¿í¸ß£¨Ãæ»ý1/16£©£¬·Ç·½ÐÎ¿éÎª×óÉÏ½Ç1/4£¨Ãæ»ý1/4£© */
+    DCT_HALF,        /* ï¿½ï¿½ï¿½Î¿ï¿½ï¿½ï¿½ï¿½ï¿½Ï½ï¿½1/2ï¿½ï¿½ß£ï¿½ï¿½ï¿½ï¿½1/4ï¿½ï¿½ï¿½ï¿½ ï¿½Ç·ï¿½ï¿½Î¿ï¿½Îªï¿½ï¿½ï¿½Ï½ï¿½1/2ï¿½ï¿½ï¿½ï¿½ï¿½1/2ï¿½ï¿½ */
+    DCT_QUAD,        /* ï¿½ï¿½ï¿½Î¿ï¿½ï¿½ï¿½ï¿½ï¿½Ï½ï¿½1/4ï¿½ï¿½ß£ï¿½ï¿½ï¿½ï¿½1/16ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Î¿ï¿½Îªï¿½ï¿½ï¿½Ï½ï¿½1/4ï¿½ï¿½ï¿½ï¿½ï¿½1/4ï¿½ï¿½ */
     /* max number of DCT pattern */
     DCT_PATTERN_NUM
 };
@@ -409,7 +411,7 @@ enum sao_EO_classes_e {
 #define NUM_CUTYPE_CTX          6
 #define NUM_SPLIT_CTX           3     // CU depth
 #define NUM_INTRA_PU_TYPE_CTX   1
-/* Ô¤²â */
+/* Ô¤ï¿½ï¿½ */
 #define NUM_MVD_CTX             3
 #define NUM_REF_NO_CTX          3
 #define NUM_DELTA_QP_CTX        4
@@ -423,7 +425,7 @@ enum sao_EO_classes_e {
 #define NUM_TU_SPLIT_CTX        3
 #define WPM_NUM                 3
 #define NUM_DIR_SKIP_CTX        4     /* B Skip mode, F Skip mode */
-/* ±ä»»ÏµÊý */
+/* ï¿½ä»»Ïµï¿½ï¿½ */
 #define NUM_BLOCK_TYPES         3
 #define NUM_MAP_CTX             11
 #define NUM_LAST_CG_CTX_LUMA    6
@@ -436,7 +438,7 @@ enum sao_EO_classes_e {
 #define NUM_LAST_CG_CTX         (NUM_LAST_CG_CTX_LUMA+NUM_LAST_CG_CTX_CHROMA)
 #define NUM_SIGCG_CTX           (NUM_SIGCG_CTX_LUMA+NUM_SIGCG_CTX_CHROMA)
 #define NUM_LAST_POS_CTX        (NUM_LAST_POS_CTX_LUMA+NUM_LAST_POS_CTX_CHROMA)
-/* ºó´¦Àí */
+/* ï¿½ï¿½ï¿½ï¿½ */
 #define NUM_SAO_MERGE_FLAG_CTX  3
 #define NUM_SAO_MODE_CTX        1
 #define NUM_SAO_OFFSET_CTX      2
@@ -489,7 +491,7 @@ typedef union context_t {
 /* ---------------------------------------------------------------------------
  * syntax context management */
 typedef struct context_set_t {
-    /* CU¼¶ */
+    /* CUï¿½ï¿½ */
     context_t cu_type_contexts         [NUM_CUTYPE_CTX];
     context_t intra_pu_type_contexts   [NUM_INTRA_PU_TYPE_CTX];
     context_t cu_split_flag            [NUM_SPLIT_CTX];
@@ -498,22 +500,22 @@ typedef struct context_set_t {
     context_t pu_reference_index       [NUM_REF_NO_CTX];
     context_t cbp_contexts             [NUM_CTP_CTX];
     context_t mvd_contexts          [2][NUM_MVD_CTX];
-    /* Ö¡¼äÔ¤²â */
+    /* Ö¡ï¿½ï¿½Ô¤ï¿½ï¿½ */
     context_t pu_type_index            [NUM_INTER_DIR_CTX];    // b_pu_type_index[15] = f_pu_type_index[3] + dir_multi_hypothesis_mode[12]
     context_t b_pu_type_min_index      [NUM_INTER_DIR_MIN_CTX];
-    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct ¹«ÓÃ
+    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct ï¿½ï¿½ï¿½ï¿½
     context_t weighted_skip_mode       [WPM_NUM];
     context_t delta_qp_contexts        [NUM_DELTA_QP_CTX];
-    /* Ö¡ÄÚÔ¤²â */
+    /* Ö¡ï¿½ï¿½Ô¤ï¿½ï¿½ */
     context_t intra_luma_pred_mode     [NUM_INTRA_MODE_CTX];
     context_t intra_chroma_pred_mode   [NUM_C_INTRA_MODE_CTX];
-    /* ±ä»»ÏµÊý */
+    /* ï¿½ä»»Ïµï¿½ï¿½ */
     context_t coeff_run             [2][NUM_BLOCK_TYPES][NUM_MAP_CTX];
     context_t coeff_level              [NUM_COEFF_LEVEL_CTX];
     context_t last_cg_contexts         [NUM_LAST_CG_CTX];
     context_t sig_cg_contexts          [NUM_SIGCG_CTX];
     context_t last_coeff_pos           [NUM_LAST_POS_CTX];
-    /* ºó´¦Àí */
+    /* ï¿½ï¿½ï¿½ï¿½ */
     context_t sao_mergeflag_context    [NUM_SAO_MERGE_FLAG_CTX];
     context_t sao_mode_context         [NUM_SAO_MODE_CTX];
     context_t sao_offset_context       [NUM_SAO_OFFSET_CTX];
@@ -558,7 +560,7 @@ typedef struct alf_param_t {
     int         filters_per_group;
     int         componentID;
     int         filterPattern[ALF_NUM_VARS];
-    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // ÁÁ¶È·ÖÁ¿16Ì×£¬É«¶È·ÖÁ¿¸÷1Ì×
+    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½16ï¿½×£ï¿½É«ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½
 } alf_param_t;
 
 
@@ -763,7 +765,7 @@ typedef struct runlevel_pair_t {
 /* ---------------------------------------------------------------------------
  * Run-Level info */
 typedef struct runlevel_t {
-    ALIGN32(runlevel_pair_t  run_level[16]);     /* ×î´ó±ä»»ÏµÊý¿éÎª32x32 */
+    ALIGN32(runlevel_pair_t  run_level[16]);     /* ï¿½ï¿½ï¿½ä»»Ïµï¿½ï¿½ï¿½ï¿½Îª32x32 */
     int         num_nonzero_cg;  // number of CGs with non-zero coefficients
     uint32_t    reserved;
     /* contexts pointer */
@@ -1039,7 +1041,7 @@ struct davs2_t {
      * decoding */
     davs2_bs_t   *p_bs;               /* input bitstream pointer */
     aec_t         aec;                /* arithmetic entropy decoder */
-    int           decoding_error;     /* ·ÇÁãÖµ±íÊ¾Óöµ½ÁË½âÂë´íÎó */
+    int           decoding_error;     /* ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½Ë½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 
     /* -------------------------------------------------------------
      * field */
@@ -1284,11 +1286,11 @@ int64_t davs2_get_us(void)
 {
 #if SYS_WINDOWS
     LARGE_INTEGER nFreq;
-    if (QueryPerformanceFrequency(&nFreq)) { // ·µ»Ø·ÇÁã±íÊ¾Ó²¼þÖ§³Ö¸ß¾«¶È¼ÆÊýÆ÷
+    if (QueryPerformanceFrequency(&nFreq)) { // ï¿½ï¿½ï¿½Ø·ï¿½ï¿½ï¿½ï¿½Ê¾Ó²ï¿½ï¿½Ö§ï¿½Ö¸ß¾ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½
         LARGE_INTEGER t1;
         QueryPerformanceCounter(&t1);
         return (int64_t)(1000000 * t1.QuadPart / (double)nFreq.QuadPart);
-    } else {  // Ó²¼þ²»Ö§³ÖÇé¿öÏÂ£¬Ê¹ÓÃºÁÃë¼¶ÏµÍ³Ê±¼ä
+    } else {  // Ó²ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½Ê¹ï¿½Ãºï¿½ï¿½ë¼¶ÏµÍ³Ê±ï¿½ï¿½
         int64_t tm = clock();
         return (tm * (1000000 / CLOCKS_PER_SEC));
     }
@@ -1370,19 +1372,19 @@ static ALWAYS_INLINE int davs2_median(int a, int b, int c)
     return b;
 }
 
-// ·µ»ØÊýÖµµÄ·ûºÅÎ»£¬¸ºÊý·µ»Ø-1£¬·ñÔò·µ»Ø1
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½Ä·ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-1ï¿½ï¿½ï¿½ï¿½ï¿½ò·µ»ï¿½1
 static ALWAYS_INLINE int davs2_sign2(int val)
 {
     return ((val >> 31) << 1) + 1;
 }
 
-// ·µ»ØÊýÖµµÄ·ûºÅÎ»£¬¸ºÊý·µ»Ø-1£¬0Öµ·µ»Ø0£¬ÕýÊý·µ»Ø1
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½Ä·ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-1ï¿½ï¿½0Öµï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1
 static ALWAYS_INLINE int davs2_sign3(int val)
 {
     return (val >> 31) | (int)(((uint32_t)-val) >> 31u);
 }
 
-// ¼ÆËãÕýÕûÊýµÄlog2Öµ£¬0ºÍ1Ê±·µ»Ø0£¬ÆäËû·µ»Ølog2(val)
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½log2Öµï¿½ï¿½0ï¿½ï¿½1Ê±ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½log2(val)
 #define davs2_log2u(val)  davs2_ctz(val)
 
 

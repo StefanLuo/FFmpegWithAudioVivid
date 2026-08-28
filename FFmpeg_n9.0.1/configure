@@ -5606,7 +5606,7 @@ fi
 test_cpp_condition windows.h "_MSC_FULL_VER >= 193030705" &&
     check_cflags -options:strict
 test_host_cpp_condition windows.h "_MSC_FULL_VER >= 193030705" &&
-    check_host_cflags -options:strict
+   check_host_cflags -options:strict
 
 add_cflags $extra_cflags
 add_cxxflags $extra_cxxflags
