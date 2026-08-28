@@ -14,7 +14,7 @@ pacman -S --needed --noconfirm \
     mingw-w64-x86_64-libplacebo mingw-w64-x86_64-vulkan-loader mingw-w64-x86_64-shaderc \
     mingw-w64-x86_64-ffnvcodec-headers mingw-w64-x86_64-libvpl \
     mingw-w64-x86_64-openssl mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libbluray \
-	mingw-w64-x86_64-cmake
+    mingw-w64-x86_64-cmake
 
 BASE_DIR="/e/BaiduNetdiskDownload/FFmpegProject"
 cd $BASE_DIR
