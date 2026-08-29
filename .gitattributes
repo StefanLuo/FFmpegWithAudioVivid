@@ -1,0 +1,30 @@
+# 默认自动识别文本文件并进行规范化
+* text=auto
+
+# 强制脚本文件在仓库中始终使用 LF
+*.sh text eol=lf
+*.py text eol=lf
+
+# 强制代码文件在仓库中使用 LF
+*.c text eol=lf
+*.cc text eol=lf
+*.cxx text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.java text eol=lf
+*.kt text eol=lf
+*.gradle text eol=lf
+*.kts text eol=lf
+*.xml text eol=lf
+
+# 声明二进制文件，防止被 Git 错误修改
+*.so binary
+*.a binary
+*.lib binary
+*.dll binary
+*.exe binary
+*.bin binary
+*.png binary
+*.jpg binary
+*.jpeg binary

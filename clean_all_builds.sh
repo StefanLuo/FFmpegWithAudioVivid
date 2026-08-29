@@ -9,7 +9,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "=== FFmpeg AVS 项目全量清理 ==="
 echo
 
-echo "=== [1/5] 正在清理 FFmpeg_n9.0.1 ==="
+echo "=== [1/6] 正在清理 FFmpeg_n9.0.1 ==="
 if [ -d "$ROOT_DIR/FFmpeg_n9.0.1" ]; then
     cd "$ROOT_DIR/FFmpeg_n9.0.1" || exit 1
     # FFmpeg 的 distclean 非常彻底，会清理 config 文件
@@ -18,7 +18,7 @@ if [ -d "$ROOT_DIR/FFmpeg_n9.0.1" ]; then
     cd "$ROOT_DIR" || exit 1
 fi
 
-echo "=== [2/5] 正在清理 libdavs2 ==="
+echo "=== [2/6] 正在清理 libdavs2 ==="
 if [ -d "$ROOT_DIR/davs2" ]; then
 	rm -f "$ROOT_DIR"/davs2/*.a
     rm -rf -- "$ROOT_DIR"/davs2/build/android_*
@@ -31,7 +31,7 @@ if [ -d "$ROOT_DIR/davs2" ]; then
     fi
 fi
 
-echo "=== [3/5] 正在清理 libxavs2 ==="
+echo "=== [3/6] 正在清理 libxavs2 ==="
 if [ -d "$ROOT_DIR/xavs2" ]; then
 	rm -f "$ROOT_DIR"/xavs2/*.a
     rm -rf -- "$ROOT_DIR"/xavs2/build/android_*
@@ -44,17 +44,35 @@ if [ -d "$ROOT_DIR/xavs2" ]; then
     fi
 fi
 
-echo "=== [4/5] 正在清理 libuavs3d ==="
+echo "=== [4/6] 正在清理 libuavs3d ==="
 if [ -d "$ROOT_DIR/uavs3d" ]; then
     # CMake 项目直接删除构建文件夹即可
     rm -rf -- "$ROOT_DIR"/uavs3d/build_*
     rm -f "$ROOT_DIR"/uavs3d/uavs3d.pc
 fi
 
-echo "=== [5/5] 正在清理 libuavs3e ==="
+echo "=== [5/6] 正在清理 libuavs3e ==="
 if [ -d "$ROOT_DIR/uavs3e" ]; then
     rm -rf -- "$ROOT_DIR"/uavs3e/build_*
     rm -f uavs3e/uavs3e.pc
+fi
+
+echo "=== [6/6] 正在清理 Media3 Android 项目 ==="
+if [ -d "$ROOT_DIR/media3" ]; then
+    cd "$ROOT_DIR/media3" || exit 1
+    # 执行 Gradle clean
+    if [ -f "./gradlew" ]; then
+        chmod +x ./gradlew
+        ./gradlew clean >/dev/null 2>&1 || true
+    fi
+    # 彻底删除所有模块下的构建与缓存目录
+    find . -type d -name "buildout" -exec rm -rf {} + >/dev/null 2>&1 || true
+    find . -type d -name ".gradle" -exec rm -rf {} + >/dev/null 2>&1 || true
+    find . -type d -name ".cxx" -exec rm -rf {} + >/dev/null 2>&1 || true
+    find . -type d -name ".externalNativeBuild" -exec rm -rf {} + >/dev/null 2>&1 || true
+    # 删除本地配置文件
+    rm -f local.properties
+    cd "$ROOT_DIR" || exit 1
 fi
 
 # FFmpeg Android 构建产物

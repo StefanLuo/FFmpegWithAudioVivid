@@ -1,0 +1,114 @@
+/*
+ * Copyright 2024 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package androidx.media3.demo.compose
+
+import android.os.Build
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.media3.demo.compose.layout.LongFormPlayerScreen
+import androidx.media3.demo.compose.layout.PlayerFormatScreen
+import androidx.media3.demo.compose.layout.SampleChooserScreen
+import androidx.media3.demo.compose.layout.ShortFormPlayerScreen
+import androidx.media3.demo.compose.viewmodel.ComposeDemoViewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+
+class MainActivity : ComponentActivity() {
+  private val sharedViewModel: ComposeDemoViewModel by viewModels()
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    enableEdgeToEdge()
+    setContent { ComposeDemoApp(modifier = Modifier.fillMaxSize(), viewModel = sharedViewModel) }
+  }
+}
+
+@Composable
+private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemoViewModel) {
+  val context = LocalContext.current
+  val isDarkTheme = isSystemInDarkTheme()
+  val supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+  val colorScheme =
+    when {
+      supportsDynamicColor && isDarkTheme -> dynamicDarkColorScheme(context)
+      supportsDynamicColor && !isDarkTheme -> dynamicLightColorScheme(context)
+      isDarkTheme -> darkColorScheme()
+      else -> lightColorScheme()
+    }
+
+  MaterialTheme(colorScheme) {
+    val navController = rememberNavController()
+    NavHost(
+      navController = navController,
+      startDestination = ROUTE_SAMPLE_CHOOSER,
+      enterTransition = { EnterTransition.None },
+      exitTransition = { ExitTransition.None },
+    ) {
+      composable(ROUTE_SAMPLE_CHOOSER) {
+        SampleChooserScreen(
+          onPlaylistClick = { selectedPlaylistName, selectedMedia ->
+            viewModel.selectPlaylistName(selectedPlaylistName)
+            viewModel.selectMediaItems(selectedMedia)
+            navController.navigate(ROUTE_PLAYER_FORMAT_CHOOSER)
+          },
+          modifier = modifier.statusBarsPadding(),
+        )
+      }
+      composable(ROUTE_PLAYER_FORMAT_CHOOSER) {
+        PlayerFormatScreen(
+          onLongFormClick = { navController.navigate(ROUTE_LONG_FORM_PLAYER) },
+          onShortFormClick = { navController.navigate(ROUTE_SHORT_FORM_PLAYER) },
+          modifier = modifier.statusBarsPadding(),
+        )
+      }
+      composable(ROUTE_LONG_FORM_PLAYER) {
+        val mediaItems by viewModel.mediaItems.collectAsState()
+        val playlistName by viewModel.playlistName.collectAsState()
+        LongFormPlayerScreen(playlistName, mediaItems)
+      }
+      composable(ROUTE_SHORT_FORM_PLAYER) {
+        val mediaItems by viewModel.mediaItems.collectAsState()
+        val playlistName by viewModel.playlistName.collectAsState()
+        ShortFormPlayerScreen(playlistName, mediaItems)
+      }
+    }
+  }
+}
+
+private const val ROUTE_SAMPLE_CHOOSER = "sample_chooser"
+private const val ROUTE_PLAYER_FORMAT_CHOOSER = "player_format_chooser"
+private const val ROUTE_LONG_FORM_PLAYER = "long_form_player"
+private const val ROUTE_SHORT_FORM_PLAYER = "short_form_player"

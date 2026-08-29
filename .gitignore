@@ -44,3 +44,8 @@ probestat.tmp
 # IDE
 .idea/
 .vscode/
+
+# Media3 build artifacts
+media3/**/build/
+media3/**/*.externalNativeBuild/
+media3/**/*.cxx/
