@@ -35,6 +35,12 @@
 #ifndef AVS3_OPTIONS_H
 #define AVS3_OPTIONS_H
 
+/*
+ * Enable AVS3 bitstream header parsing.
+ * Required for FFmpeg memory input path.
+ */
+#define BS_HEADER_COMPAT
+
 // #define DEBUG_AVS3_HOA            /* shuai: Debug AVS3 HOA init version */
 // #define BUG_FIXED_AVS3_HOA        /* shuai: Fixed HOA angle pair compute error. */
 // #define AVS3_WAVE_READER          /* shuai: Fixed wave file errors. */

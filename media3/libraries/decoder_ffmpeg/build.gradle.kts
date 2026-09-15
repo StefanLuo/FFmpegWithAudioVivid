@@ -22,7 +22,12 @@ android {
     }
   }
 
-  sourceSets { getByName("androidTest").assets.directories.add("../test_data/src/test/assets") }
+  sourceSets {
+    getByName("main") {
+      jniLibs.srcDirs("src/main/jni/ffmpeg/android-libs")
+    }
+    getByName("androidTest").assets.directories.add("../test_data/src/test/assets")
+  }
 }
 
 // Configure the native build only if ffmpeg is present to avoid gradle sync

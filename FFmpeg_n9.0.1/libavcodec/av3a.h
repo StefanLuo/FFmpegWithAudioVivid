@@ -121,4 +121,4 @@ extern const int64_t bitrateTableFoa[AVS3_SIZE_BITRATE_TABLE];
 extern const int64_t bitrateTableHoa2[AVS3_SIZE_BITRATE_TABLE];
 extern const int64_t bitrateTableHoa3[AVS3_SIZE_BITRATE_TABLE];
 
-extern uint16_t avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf, const int byte_size);
+extern int avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf, const int byte_size);

@@ -30,11 +30,12 @@ extern const CodecBitrateConfig avpriv_codecBitrateConfigTable[CHANNEL_CONFIG_UN
 const int avpriv_avs3_samplingrate_table[AVS3_SIZE_FS_TABLE] = {
     192000, 96000, 48000, 44100, 32000, 24000, 22050, 16000, 8000};
 
-uint16_t avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf, const int byte_size){
+int avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf, const int byte_size){
 
     GetBitContext gb;
 
-    uint8_t nn_type, codec_id, content_type, samping_rate_index, hoa_order, resolution_index, bitdepth, resolution;
+    uint8_t nn_type, codec_id, content_type, samping_rate_index, hoa_order, resolution_index, resolution;
+	enum AVSampleFormat bitdepth;
     AVS3AChannelConfig channel_config;
 
     int16_t channels, objects;
@@ -74,6 +75,9 @@ uint16_t avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf,
 
     // 4 bits for sampling index
     samping_rate_index = get_bits(&gb, 4);
+	if (samping_rate_index >= AVS3_SIZE_FS_TABLE) {
+		return AVERROR_INVALIDDATA;
+	}
 
     // skip 8 bits for CRC first part
     skip_bits(&gb, 8);
@@ -86,52 +90,64 @@ uint16_t avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf,
         num_chan_index = get_bits(&gb, 7);
 
         channel_config = (AVS3AChannelConfig)num_chan_index;
-        
+
+		if ((unsigned)channel_config >= CHANNEL_CONFIG_UNKNOWN) {
+			return AVERROR_INVALIDDATA;
+		}
+
+		if (avpriv_codecBitrateConfigTable[channel_config].bitrateTable == NULL) {
+			return AVERROR_INVALIDDATA;
+		}
+
         switch (channel_config)
         {
-        case CHANNEL_CONFIG_MONO:
-            channels = 1;
-            channel_layout = AV_CH_LAYOUT_MONO;
-            break;
-        case CHANNEL_CONFIG_STEREO:
-            channels = 2;
-            channel_layout = AV_CH_LAYOUT_STEREO;
-            break;
-        case CHANNEL_CONFIG_MC_4_0:
-            channels = 4;
-            channel_layout = AV_CH_LAYOUT_4POINT0;
-            break;
-        case CHANNEL_CONFIG_MC_5_1:
-            channels = 6;
-            channel_layout = AVS3P3_CH_LAYOUT_5POINT1;
-            break;
-        case CHANNEL_CONFIG_MC_7_1:
-            channels = 8;
-            channel_layout = AV_CH_LAYOUT_7POINT1;
-            break;
-        case CHANNEL_CONFIG_MC_5_1_2:
-            channels = 8;
-            channel_layout = AV_CH_LAYOUT_5POINT1POINT2_BACK;
-            break;
-        case CHANNEL_CONFIG_MC_5_1_4:
-            channels = 10;
-            channel_layout = AV_CH_LAYOUT_5POINT1POINT4_BACK;
-            break;
-        case CHANNEL_CONFIG_MC_7_1_2:
-            channels = 10;
-            channel_layout = AV_CH_LAYOUT_7POINT1POINT2;
-            break;
-        case CHANNEL_CONFIG_MC_7_1_4:
-            channels = 12;
-            channel_layout = AV_CH_LAYOUT_7POINT1POINT4_BACK;
-            break;
-        case CHANNEL_CONFIG_MC_22_2:
-            channels = 24;
-            channel_layout = AV_CH_LAYOUT_22POINT2;
-            break;
-        default:
-            break;
+			case CHANNEL_CONFIG_MONO:
+				channels = 1;
+				channel_layout = AV_CH_LAYOUT_MONO;
+				break;
+			case CHANNEL_CONFIG_STEREO:
+				channels = 2;
+				channel_layout = AV_CH_LAYOUT_STEREO;
+				break;
+			case CHANNEL_CONFIG_MC_4_0:
+				channels = 4;
+				channel_layout = AV_CH_LAYOUT_4POINT0;
+				break;
+			case CHANNEL_CONFIG_MC_5_1:
+				channels = 6;
+				channel_layout = AVS3P3_CH_LAYOUT_5POINT1;
+				break;
+			case CHANNEL_CONFIG_MC_7_1:
+				channels = 8;
+				channel_layout = AV_CH_LAYOUT_7POINT1;
+				break;
+			case CHANNEL_CONFIG_MC_5_1_2:
+				channels = 8;
+				channel_layout = AV_CH_LAYOUT_5POINT1POINT2_BACK;
+				break;
+			case CHANNEL_CONFIG_MC_5_1_4:
+				channels = 10;
+				channel_layout = AV_CH_LAYOUT_5POINT1POINT4_BACK;
+				break;
+			case CHANNEL_CONFIG_MC_7_1_2:
+				channels = 10;
+				channel_layout = AV_CH_LAYOUT_7POINT1POINT2;
+				break;
+			case CHANNEL_CONFIG_MC_7_1_4:
+				channels = 12;
+				channel_layout = AV_CH_LAYOUT_7POINT1POINT4_BACK;
+				break;
+			case CHANNEL_CONFIG_MC_22_2:
+				channels = 24;
+				channel_layout = AV_CH_LAYOUT_22POINT2;
+				break;
+			default:
+				break;
         }
+		
+		if (channels <= 0) {
+			return AVERROR_INVALIDDATA;
+		}
     }
     else if (coding_profile == 1){
 
@@ -173,8 +189,20 @@ uint16_t avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf,
             // channelNumIdx for sound bed
             channel_config = (AVS3AChannelConfig)num_chan_index;
 
+			if ((unsigned)channel_config >= CHANNEL_CONFIG_UNKNOWN) {
+				return AVERROR_INVALIDDATA;
+			}
+
+			if (avpriv_codecBitrateConfigTable[channel_config].bitrateTable == NULL) {
+				return AVERROR_INVALIDDATA;
+			}
+
             // sound bed bitrate
             bitrateBedMc = avpriv_codecBitrateConfigTable[channel_config].bitrateTable[bed_brt_idx];
+
+			if (bitrateBedMc <= 0) {
+				return AVERROR_INVALIDDATA;
+			}
 
             // numChannels for sound bed
             for (int16_t i = 0; i < AVS3_SIZE_MC_CONFIG_TABLE; i++)
@@ -188,11 +216,18 @@ uint16_t avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf,
             // bitrate per obj
             bitratePerObj = avpriv_codecBitrateConfigTable[CHANNEL_CONFIG_MONO].bitrateTable[obj_brt_idx];
 
+			if (bitratePerObj <= 0) {
+				return AVERROR_INVALIDDATA;
+			}
+
             // add num chans and num objs to get total chans
             /* channels += objects; */
 
             total_bitrate = bitrateBedMc + bitratePerObj * objects;
         }
+		else {
+			return AVERROR_INVALIDDATA;
+		}
     }
     else if (coding_profile == 2){
         content_type = 3;
@@ -224,23 +259,34 @@ uint16_t avpriv_read_av3a_frame_header(AVS3AHeaderInfo *hdf, const uint8_t *buf,
 
     // 2 bits for bit depth
     resolution_index = get_bits(&gb, 2);
-    switch (resolution_index){
-    case 0:
-        bitdepth = AV_SAMPLE_FMT_U8;
-        resolution = 8;
-        break;
-    case 1:
-        bitdepth = AV_SAMPLE_FMT_S16;
-        resolution = 16;
-        break;
-    case 2:
-        resolution = 24;
-        break;
-    default:
-        return AVERROR_INVALIDDATA;
-    }
+    switch (resolution_index) {
+	case 0:
+		bitdepth = AV_SAMPLE_FMT_U8;
+		resolution = 8;
+		break;
+
+	case 1:
+		bitdepth = AV_SAMPLE_FMT_S16;
+		resolution = 16;
+		break;
+
+	case 2:
+		/*
+		 * AV3A 24-bit samples are represented using 32-bit
+		 * FFmpeg sample storage.
+		 */
+		bitdepth = AV_SAMPLE_FMT_S32;
+		resolution = 24;
+		break;
+
+	default:
+		return AVERROR_INVALIDDATA;
+	}
 
     if (coding_profile != 1){
+		if (avpriv_codecBitrateConfigTable[channel_config].bitrateTable == NULL) {
+			return AVERROR_INVALIDDATA;
+		}
         // 4 bits for bitrate index
         brt_idx = get_bits(&gb, 4);
         total_bitrate = avpriv_codecBitrateConfigTable[channel_config].bitrateTable[brt_idx];

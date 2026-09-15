@@ -88,7 +88,6 @@ static void InitDecoderCore(
     // init core config
     if ((hCoreConfig = (AVS3_CORE_CONFIG_DATA_HANDLE)malloc(sizeof(AVS3_CORE_CONFIG_DATA))) == NULL)
     {
-        fprintf(stderr, "Can not allocate memory for AVS3 decoder Core configure structure.\n");
         exit(-1);
     }
 
@@ -108,7 +107,6 @@ static void Avs3DecCreateMono(AVS3DecoderHandle hAvs3Dec)
     // core coder st malloc and init
     if ((hAvs3Dec->hDecCore[0] = (AVS3_DEC_CORE_HANDLE)malloc(sizeof(AVS3_DEC_CORE_DATA))) == NULL)
     {
-        fprintf(stderr, "Can not allocate memory for AVS3 decoder core data structure.\n");
         exit(-1);
     }
 
@@ -122,7 +120,6 @@ static void Avs3DecCreateMono(AVS3DecoderHandle hAvs3Dec)
 
     if ((hDecMono = (AVS3_MONO_DEC_HANDLE)malloc(sizeof(AVS3_MONO_DEC_DATA))) == NULL)
     {
-        fprintf(stderr, "Can not allocate memory for AVS3 Stereo decoder data structure.\n");
         exit(-1);
     }
 
@@ -142,7 +139,6 @@ static void Avs3DecCreateStereo(AVS3DecoderHandle hAvs3Dec)
     {
         if ((hAvs3Dec->hDecCore[ch] = (AVS3_DEC_CORE_HANDLE)malloc(sizeof(AVS3_DEC_CORE_DATA))) == NULL)
         {
-            fprintf(stderr, "Can not allocate memory for AVS3 decoder core data structure.\n");
             exit(-1);
         }
 
@@ -157,7 +153,6 @@ static void Avs3DecCreateStereo(AVS3DecoderHandle hAvs3Dec)
 
     if ((hDecStereo = (AVS3_STEREO_DEC_HANDLE)malloc(sizeof(AVS3_STEREO_DEC_DATA))) == NULL)
     {
-        fprintf(stderr, "Can not allocate memory for AVS3 Stereo decoder data structure.\n");
         exit(-1);
     }
 
@@ -192,7 +187,6 @@ static void Avs3DecCreateMc(AVS3DecoderHandle hAvs3Dec)
     {
         if ((hAvs3Dec->hDecCore[ch] = (AVS3_DEC_CORE_HANDLE)malloc(sizeof(AVS3_DEC_CORE_DATA))) == NULL)
         {
-            fprintf(stderr, "Can not allocate memory for AVS3 decoder core data structure.\n");
             exit(-1);
         }
 
@@ -219,7 +213,6 @@ static void Avs3DecCreateMc(AVS3DecoderHandle hAvs3Dec)
 
     if ((hMdctMcDec = (AVS3_MC_DEC_HANDLE)malloc(sizeof(AVS3_MC_DEC_DATA))) == NULL)
     {
-        fprintf(stderr, "Can not allocate memory for AVS3 Mc decoder data structure.\n");
         exit(-1);
     }
 
@@ -330,14 +323,12 @@ static void Avs3DecCreateHoa(AVS3DecoderHandle hAvs3Dec)
     /* HOA data structure */
     if ((hDecHoa = (AVS3_HOA_DEC_DATA_HANDLE)malloc(sizeof(AVS3_HOA_DEC_DATA))) == NULL)
     {
-        fprintf(stderr, "Can not allocate memory for AVS3 HOA decoder data structure.\n");
         exit(-1);
     }
 
     /* HOA data configure structure */
     if ((hHoaConfig = (AVS3_HOA_CONFIG_DATA_HANDLE)malloc(sizeof(AVS3_HOA_CONFIG_DATA))) == NULL)
     {
-        fprintf(stderr, "Can not allocate memory for AVS3 HOA data configuration structure.\n");
         exit(-1);
     }
 
@@ -348,7 +339,6 @@ static void Avs3DecCreateHoa(AVS3DecoderHandle hAvs3Dec)
     {
         if ((hAvs3Dec->hDecCore[ch] = (AVS3_DEC_CORE_HANDLE)malloc(sizeof(AVS3_DEC_CORE_DATA))) == NULL)
         {
-            fprintf(stderr, "Can not allocate memory for AVS3 encoder core data structure.\n");
             exit(-1);
         }
 
@@ -416,7 +406,6 @@ static void Avs3DecCreateMetaData(AVS3DecoderHandle hAvs3Dec)
     Avs3DecMetadataHandle hMetadata = NULL;
 
     if ((hMetadata = (Avs3DecMetadataHandle)malloc(sizeof(Avs3DecMetadata))) == NULL) {
-        fprintf(stderr, "Can not allocate memory for AVS3 metadata structure.\n");
         return;
     }
 
@@ -486,14 +475,12 @@ void Avs3InitDecoder(AVS3DecoderHandle hAvs3Dec, FILE** fModel)
     hAvs3Dec->modelType = HYPER;
     if (*fModel == NULL)
     {
-        fprintf(stderr, "Can not open model file.\n");
         exit(-1);
     }
     InitNeuralCodec(*fModel, &hAvs3Dec->baseCodecSt, &hAvs3Dec->contextCodecSt, hAvs3Dec->modelType);
 
     if ((hBitstream = (AVS3_BSTEREAM_DATA_DEC_HANDLE)malloc(sizeof(AVS3_BSTEREAM_DEC_DATA))) == NULL) 
     {
-        fprintf(stderr, "Can not allocate memory for AVS3 bitstream data structure.\n");
         exit(-1);
     }
 

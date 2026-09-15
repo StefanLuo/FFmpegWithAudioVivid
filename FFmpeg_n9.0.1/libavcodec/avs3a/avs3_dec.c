@@ -34,6 +34,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "libavutil/log.h"
 #include "avs3_stat_dec.h"
 #include "avs3_prot_dec.h"
 #include "avs3_prot_com.h"
@@ -45,16 +46,13 @@ void Avs3InverseQC(AVS3DecoderHandle hAvs3Dec, short nChans)
 #endif
 {
     short ch;
-    AVS3_DEC_CORE_HANDLE hDecCore = NULL;
 #ifndef MCR_INTEGRATE
     const short nChans = hAvs3Dec->numChansOutput;
 #endif
-
-    float featureOut[FRAME_LEN][2];             // 2D feature map for neural qc
-
+	float (*featureOut)[2] = hAvs3Dec->featureOut;
     for (ch = 0; ch < nChans; ch++)
     {
-        hDecCore = hAvs3Dec->hDecCore[ch];
+        AVS3_DEC_CORE_HANDLE hDecCore = hAvs3Dec->hDecCore[ch];
 
         // get number of spectral lines for NF calculation
         int16_t numLinesNoiseFill = 0;
@@ -115,7 +113,6 @@ void Avs3PostSynthesis(
 #ifdef FD_SHAPING
     // Inverse fd spectrum shaping
     Avs3FdInvSpectrumShaping(hDecCore->lsfVqIndex, hDecCore->origSpectrum, hDecCore->lsfLbrFlag);
-
 #ifdef POST_SHAPING
     // post processing the shaped spectrum, in low bitrate
     if (hDecCore->lsfLbrFlag == 1 && hDecCore->transformType != ONLY_SHORT_WINDOW) {
@@ -148,47 +145,45 @@ void Avs3InverseMdctDecoder(AVS3_DEC_CORE_HANDLE hDecCore, float output[BLOCK_LE
 {
     AVS3_CORE_CONFIG_DATA_HANDLE hCoreConfig = hDecCore->hCoreConfig;
 
-    float winLeft[BLOCK_LEN_LONG];
-    float winRight[BLOCK_LEN_LONG];
-    float tdaSiganl[BLOCK_LEN_LONG + BLOCK_LEN_LONG];
+    float *winLeft = hDecCore->winLeft;
+    float *winRight = hDecCore->winRight;
+    float *tdaSignal = hDecCore->tdaSignal;
     short overlapSize;
 
-    SetZero(tdaSiganl, BLOCK_LEN_LONG + BLOCK_LEN_LONG);
+    SetZero(tdaSignal + BLOCK_LEN_LONG, BLOCK_LEN_LONG);
 
-    Mvf2f(hDecCore->origSpectrum, tdaSiganl, BLOCK_LEN_LONG);
+	Mvf2f(hDecCore->origSpectrum, tdaSignal, BLOCK_LEN_LONG);
 
     if (hDecCore->transformType != ONLY_SHORT_WINDOW)
     {
         overlapSize = hCoreConfig->overlapLongSize;
 
         /* Inverse MDCT */
-        IMDCT(tdaSiganl, 2 * overlapSize);
+		IMDCT(tdaSignal, 2 * overlapSize);
 
         /* Get window shape */
         GetWindowShape(hCoreConfig, hDecCore->transformType, winLeft, winRight);
 
         /* Window signal */
-        WindowSignal(hCoreConfig, tdaSiganl, tdaSiganl, hDecCore->transformType, winLeft, winRight);
+        WindowSignal(hCoreConfig, tdaSignal, tdaSignal, hDecCore->transformType, winLeft, winRight);
 
         /* Overlap-add */
-        Vadd(tdaSiganl, hDecCore->synthBuffer, tdaSiganl, overlapSize);
+        Vadd(tdaSignal, hDecCore->synthBuffer, tdaSignal, overlapSize);
 
         /* however current frame is a transition frame or long window, stored all the half frame including zero padding part and flat part, it make synthesis easily */
-        Mvf2f(tdaSiganl + overlapSize, hDecCore->synthBuffer, overlapSize);
+        Mvf2f(tdaSignal + overlapSize, hDecCore->synthBuffer, overlapSize);
 
         /* Output */
-        Mvf2f(tdaSiganl, output, overlapSize);
+        Mvf2f(tdaSignal, output, overlapSize);
     }
     else
     {
-        float tmpSynthBuffer[BLOCK_LEN_SHORT];
-        float winShort[BLOCK_LEN_SHORT + BLOCK_LEN_SHORT];
-        float tmpSynth[FRAME_LEN];
+        float *tmpSynthBuffer = hDecCore->tmpSynthBuffer;
+		float *winShort = hDecCore->winShort;
+		float *tmpSynth = hDecCore->tmpSynth;
         const short synthOffset = hCoreConfig->overlapPaddingSize;
 
         overlapSize = hCoreConfig->overlapShortSize;
-
-        SetZero(tmpSynth, FRAME_LEN);
 
         /* get last frame overlap-add buffer for the first short block */
         Mvf2f(hDecCore->synthBuffer + synthOffset, tmpSynthBuffer, overlapSize);
@@ -201,7 +196,7 @@ void Avs3InverseMdctDecoder(AVS3_DEC_CORE_HANDLE hDecCore, float output[BLOCK_LE
         {
             SetZero(winShort, 2 * overlapSize);
 
-            Mvf2f(tdaSiganl + block * overlapSize, winShort, overlapSize);
+            Mvf2f(tdaSignal + block * overlapSize, winShort, overlapSize);
 
             /* Inverse MDCT */
             IMDCT(winShort, 2 * overlapSize);
@@ -241,14 +236,9 @@ void Avs3InverseMdctDecoder(AVS3_DEC_CORE_HANDLE hDecCore, float output[BLOCK_LE
     return;
 }
 
-void Avs3Decode(AVS3DecoderHandle hAvs3Dec, short data[MAX_CHANNELS * FRAME_LEN])
+static void Avs3DecodeSynthesis(AVS3DecoderHandle hAvs3Dec, float synth[MAX_CHANNELS][FRAME_LEN])
 {
-    float synth[MAX_CHANNELS][FRAME_LEN];
-    const short frameLength = hAvs3Dec->frameLength;
-    const short nChans = hAvs3Dec->numChansOutput;
-
 #ifdef METADATA_EXT
-    // Metadata decoder
     Avs3MetadataDec(hAvs3Dec);
 #endif
 
@@ -264,16 +254,14 @@ void Avs3Decode(AVS3DecoderHandle hAvs3Dec, short data[MAX_CHANNELS * FRAME_LEN]
         Avs3StereoDec(hAvs3Dec, synth);
 #else
         if (hAvs3Dec->hDecStereo->useMcr == 0) {
-            // MS stereo decoding
             Avs3StereoDec(hAvs3Dec, synth);
         }
         else {
-            // MCR stereo decoding
             Avs3StereoMcrDec(hAvs3Dec, synth);
         }
 #endif
     }
-    else if (hAvs3Dec->avs3CodecFormat == AVS3_MC_FORMAT) 
+    else if (hAvs3Dec->avs3CodecFormat == AVS3_MC_FORMAT)
     {
 #ifdef MC_ENABLE
         Avs3McDec(hAvs3Dec, synth);
@@ -289,10 +277,34 @@ void Avs3Decode(AVS3DecoderHandle hAvs3Dec, short data[MAX_CHANNELS * FRAME_LEN]
         Avs3MixDec(hAvs3Dec, synth);
     }
 #endif
+}
 
-    Avs3SynthOutput(synth, frameLength, nChans, data);
+void Avs3Decode(AVS3DecoderHandle hAvs3Dec, short data[MAX_CHANNELS * FRAME_LEN])
+{
+    float (*synth)[FRAME_LEN] = hAvs3Dec->synth;
+    const short frameLength = hAvs3Dec->frameLength;
+    const short nChans = hAvs3Dec->numChansOutput;
+
+    Avs3DecodeSynthesis(hAvs3Dec, synth);
+
+    Avs3SynthOutput(
+        synth,
+        frameLength,
+        nChans,
+        data);
 
     hAvs3Dec->initFrame = 0;
+}
 
-    return;
+void Avs3DecodePlanar(AVS3DecoderHandle hAvs3Dec, short *data[MAX_CHANNELS])
+{
+    float (*synth)[FRAME_LEN] = hAvs3Dec->synth;
+    const short frameLength = hAvs3Dec->frameLength;
+    const short nChans = hAvs3Dec->numChansOutput;
+
+    Avs3DecodeSynthesis(hAvs3Dec, synth);
+
+    Avs3SynthOutputPlanar(synth, frameLength, nChans, data);
+
+    hAvs3Dec->initFrame = 0;
 }

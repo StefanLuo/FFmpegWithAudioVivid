@@ -273,6 +273,30 @@ unsigned long Avs3SynthOutput(float synth[MAX_CHANNELS][BLOCK_LEN_LONG], const s
     return noClipping;
 }
 
+unsigned long Avs3SynthOutputPlanar(
+    float synth[MAX_CHANNELS][BLOCK_LEN_LONG],
+    const short output_frame,
+    const short n_channels,
+    short *synth_out[MAX_CHANNELS])
+{
+    short n;
+    unsigned long noClipping = 0;
+
+    /*
+     * Convert each decoded channel directly to its final
+     * planar S16 destination.
+     */
+    for (n = 0; n < n_channels; n++) {
+        noClipping +=
+            MvFloat2Short(
+                synth[n],
+                synth_out[n],
+                output_frame);
+    }
+
+    return noClipping;
+}
+
 
 #ifdef NEURAL_QC
 

@@ -225,6 +225,16 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
                 /* containerMimeType= */ MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_MHAS:
         return new PesReader(new MpeghReader(MimeTypes.VIDEO_MP2T));
+      case TsExtractor.TS_STREAM_TYPE_AVS2:
+        return new PesReader(new AvsReader(MimeTypes.VIDEO_AVS2));
+      case TsExtractor.TS_STREAM_TYPE_AVS3:
+        return new PesReader(new AvsReader(MimeTypes.VIDEO_AVS3));
+      case TsExtractor.TS_STREAM_TYPE_CAVS:
+        return new PesReader(new AvsReader(MimeTypes.VIDEO_AVSPLUS));
+      // case TsExtractor.TS_STREAM_TYPE_AV3A:
+      //   return new Av3aReader(esInfo.language, esInfo.getRoleFlags());
+      case TsExtractor.TS_STREAM_TYPE_AV3A:
+        return new PesReader(new Av3aReader(esInfo.language, esInfo.getRoleFlags()));
       default:
         return null;
     }

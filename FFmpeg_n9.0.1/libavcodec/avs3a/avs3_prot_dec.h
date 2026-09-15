@@ -45,8 +45,11 @@ void GetAvs3DecoderCommandLine(AVS3DecoderHandle hAvs3Dec, const int argc, char 
 short Avs3ParseBsFrameHeader(
     AVS3DecoderHandle hAvs3Dec,
     FILE *fBitstream,
-    int16_t isInitFrame,
-    uint16_t *crcBs
+	const uint8_t *data,
+    size_t data_size,
+	int16_t isInitFrame,
+    uint16_t *crcBs,
+    int32_t *headerBsBytes
 );
 #endif
 
@@ -63,6 +66,8 @@ void Avs3DecoderDestroy(AVS3DecoderHandle hAvs3Dec);
 void ResetBitstream(AVS3_BSTEREAM_DATA_DEC_HANDLE hBitstream);
 
 short ReadBitstream(AVS3DecoderHandle hAvs3Dec, FILE* fBitstream);
+
+short ReadBitstreamMemory(AVS3DecoderHandle hAvs3Dec, const uint8_t *data, size_t data_size);
 
 uint16_t GetNextIndice(uint8_t *bitstream, uint32_t *nextBitPos, int16_t numBits);
 
@@ -135,6 +140,8 @@ void Avs3MetadataDec(AVS3DecoderHandle hAvs3Dec);
 #endif
 
 void Avs3Decode(AVS3DecoderHandle hAvs3Dec, short data[MAX_CHANNELS * FRAME_LEN]);
+
+void Avs3DecodePlanar(AVS3DecoderHandle hAvs3Dec, short *data[MAX_CHANNELS]);
 
 void Avs3InverseMdctDecoder(AVS3_DEC_CORE_HANDLE hEncCore, float output[BLOCK_LEN_LONG]);
 

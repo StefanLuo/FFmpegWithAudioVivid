@@ -1,0 +1,89 @@
+import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.SourcesJar
+
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.maven.publish)
+}
+
+android {
+    namespace = "dev.jdtech.mpv"
+    compileSdk = 36
+    buildToolsVersion = "37.0.0"
+    ndkVersion = "29.0.14206865"
+
+    defaultConfig {
+        minSdk = 26
+        consumerProguardFiles("proguard-rules.pro")
+        externalNativeBuild {
+            cmake {
+                arguments += listOf(
+                    "-DANDROID_STL=c++_shared",
+                )
+                cFlags += "-Werror"
+                cppFlags += "-std=c++11"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "4.1.2"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+mavenPublishing {
+    publishToMavenCentral(automaticRelease = true)
+    signAllPublications()
+
+    configure(
+        platform = AndroidSingleVariantLibrary(
+            javadocJar = JavadocJar.Empty(),
+            sourcesJar = SourcesJar.Empty(),
+            variant = "release",
+        )
+    )
+
+    coordinates(
+        groupId = "dev.jdtech.mpv",
+        artifactId = "libmpv",
+        version = "1.0.0"
+    )
+
+    pom {
+        name = "libmpv-android"
+        description = "libmpv for Android"
+        inceptionYear = "2023"
+        url = "https://github.com/jarnedemeulemeester/libmpv-android"
+        licenses {
+            license {
+                name = "MIT license"
+                url = "https://github.com/jarnedemeulemeester/libmpv-android/blob/main/LICENSE"
+            }
+        }
+        developers {
+            developer {
+                id = "jarnedemeulemeester"
+                name = "Jarne Demeulemeester"
+                email = "jarnedemeulemeester@gmail.com"
+            }
+        }
+        scm {
+            url = "https://github.com/jarnedemeulemeester/libmpv-android.git"
+            connection = "scm:git@github.com:jarnedemeulemeester/libmpv-android.git"
+            developerConnection = "scm:git@github.com:jarnedemeulemeester/libmpv-android.git"
+        }
+        issueManagement {
+            system = "GitHub"
+            url = "https://github.com/jarnedemeulemeester/libmpv-android/issues"
+        }
+    }
+}

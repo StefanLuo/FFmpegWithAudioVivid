@@ -203,7 +203,11 @@ public final class FfmpegAudioDecoder
       case MimeTypes.AUDIO_WAVPACK:
       case MimeTypes.AUDIO_TTA:
       case MimeTypes.AUDIO_WMA:
-        return initializationData.get(0);
+      case MimeTypes.AUDIO_REALAUDIO:
+      case MimeTypes.AUDIO_ADPCM:
+      case MimeTypes.AUDIO_AV3A:
+      case MimeTypes.AUDIO_AVS3_AUDIO:
+        return initializationData.isEmpty() ? null : initializationData.get(0);
       case MimeTypes.AUDIO_ALAC:
         return getAlacExtraData(initializationData);
       case MimeTypes.AUDIO_VORBIS:

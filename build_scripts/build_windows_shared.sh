@@ -36,7 +36,7 @@ cfg_options=(
 	--enable-pic
 	--disable-doc
 	--disable-debug
-	--enable-lto
+	# --enable-lto
     --enable-stripping
 
 	# --- 授权许可 ---

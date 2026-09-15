@@ -7,46 +7,98 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "libavutil/channel_layout.h"
 #include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "avcodec.h"
 #include "codec_internal.h"
 #include "decode.h"
-
-#ifdef _WIN32
-#include "compat/fmemopen_win.h"
-#endif
 #include "internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+#include <errno.h>
 
 #include "avs3a/avs3_prot_dec.h"
 #include "avs3a/avs3_stat_dec.h"
 #include "avs3a/avs3_stat_com.h"
 
-#define AVS3_AUDIO_SYNC_WORD 0xFFF
-
 typedef struct AVS3ADecoderContext {
     const AVClass *class;
     AVS3DecoderHandle hAvs3Dec;
     FILE *fModel;
+	int header_parsed;
     int initialized;
     int sample_rate;
     int channels;
     int frame_size;
-    char *model_path;
+    char *av3a_model_path;
 } AVS3ADecoderContext;
+
+static int avs3a_open_model(
+    AVCodecContext *avctx,
+    AVS3ADecoderContext *s)
+{
+    if (s->fModel) return 0;
+    if (s->av3a_model_path &&
+        s->av3a_model_path[0] != '\0') {
+        s->fModel = fopen(
+            s->av3a_model_path,
+            "rb");
+        if (!s->fModel) {
+            int err = AVERROR(errno);
+            av_log(
+                avctx,
+                AV_LOG_ERROR,
+                "AV3A: failed to open av3a model '%s': errno=%d\n",
+                s->av3a_model_path,
+                errno);
+            return err;
+        }
+        return 0;
+    }
+#ifdef _WIN32
+    {
+        char path[MAX_PATH];
+        if (GetModuleFileNameA(NULL, path, sizeof(path))) {
+            char *last_slash = strrchr(path, '\\');
+            if (last_slash) {
+                strcpy(last_slash + 1, "model.bin");
+                s->fModel = fopen(path, "rb");
+                if (s->fModel) {
+                    av_log(
+                        avctx,
+                        AV_LOG_DEBUG,
+                        "AV3A: opened Windows model: %s\n",
+                        path);
+                    return 0;
+                }
+            }
+        }
+    }
+#endif
+
+    return AVERROR(ENOENT);
+}
 
 static av_cold int avs3a_decode_init(AVCodecContext *avctx)
 {
     AVS3ADecoderContext *s = avctx->priv_data;
 
-    s->sample_rate = avctx->sample_rate > 0 ? avctx->sample_rate : 48000;
-    s->channels = avctx->ch_layout.nb_channels > 0 ? avctx->ch_layout.nb_channels : 2;
+    s->sample_rate = avctx->sample_rate > 0 ?
+                     avctx->sample_rate : 48000;
+
+    s->channels = avctx->ch_layout.nb_channels > 0 ?
+                  avctx->ch_layout.nb_channels : 2;
+
     s->frame_size = 1024;
+	s->header_parsed = 0;
     s->initialized = 0;
     s->fModel = NULL;
 
@@ -54,26 +106,8 @@ static av_cold int avs3a_decode_init(AVCodecContext *avctx)
     if (!s->hAvs3Dec)
         return AVERROR(ENOMEM);
 
-    /* 尝试在多个可能的位置打开模型文件 */
-    s->fModel = fopen("model.bin", "rb");
-    if (!s->fModel) {
-#ifdef _WIN32
-        char path[MAX_PATH];
-        if (GetModuleFileNameA(NULL, path, MAX_PATH)) {
-            char *last_slash = strrchr(path, '\\');
-            if (last_slash) {
-                strcpy(last_slash + 1, "model.bin");
-                s->fModel = fopen(path, "rb");
-            }
-        }
-#endif
-    }
-    /* 如果用户通过 AVOption 传入了路径 */
-    if (!s->fModel && s->model_path) {
-        s->fModel = fopen(s->model_path, "rb");
-    }
-
     avctx->sample_fmt = AV_SAMPLE_FMT_S16P;
+
     return 0;
 }
 
@@ -81,78 +115,185 @@ static int avs3a_decode_frame(AVCodecContext *avctx, AVFrame *frame,
                               int *got_frame, AVPacket *avpkt)
 {
     AVS3ADecoderContext *s = avctx->priv_data;
-    FILE *mem_file;
-    short *output_buf;
     int ret;
-    int n_channels, frame_len;
+    int n_channels;
+    int frame_len;
 
-    if (!s->hAvs3Dec) return AVERROR(EINVAL);
-    if (avpkt->size <= 0) return AVERROR_INVALIDDATA;
-
-    /* 核心修复：只有在尚未初始化且模型缺失时，才报致命错 */
-    if (!s->initialized && !s->fModel) {
-        av_log(avctx, AV_LOG_ERROR, "AVS3A model.bin not found! Put it next to ffplay.exe\n");
-        return AVERROR(ENOENT);
+    if (!s->hAvs3Dec) {
+        return AVERROR(EINVAL);
     }
 
-    mem_file = fmemopen((void *)avpkt->data, avpkt->size, "rb");
-    if (!mem_file) return AVERROR(ENOMEM);
-
-    if (!s->initialized) {
-        if (!Avs3ParseBsFrameHeader(s->hAvs3Dec, mem_file, 1, NULL)) {
-            fclose(mem_file);
-            return AVERROR_INVALIDDATA;
-        }
-
-        /* 使用已经打开的模型文件句柄初始化解码器 */
-        Avs3InitDecoder(s->hAvs3Dec, &s->fModel);
-
-        /* 初始化后立即关闭文件，s->fModel 变为 NULL 是正常的，不再作为报错依据 */
-        if (s->fModel) {
-            fclose(s->fModel);
-            s->fModel = NULL;
-        }
-        s->initialized = 1;
-
-        fseek(mem_file, 0, SEEK_SET);
-
-        s->sample_rate = s->hAvs3Dec->outputFs;
-        s->channels = s->hAvs3Dec->numChansOutput;
-        s->frame_size = s->hAvs3Dec->frameLength;
-        avctx->sample_rate = s->sample_rate;
-        av_channel_layout_uninit(&avctx->ch_layout);
-        av_channel_layout_default(&avctx->ch_layout, s->channels);
-    }
-
-    if (!ReadBitstream(s->hAvs3Dec, mem_file)) {
-        fclose(mem_file);
+    if (!avpkt || avpkt->size <= 0 || !avpkt->data) {
         return AVERROR_INVALIDDATA;
     }
-    fclose(mem_file);
 
-    n_channels = s->hAvs3Dec->numChansOutput;
-    frame_len = s->hAvs3Dec->frameLength;
+    if (!s->header_parsed) {
+		if (!Avs3ParseBsFrameHeader(
+				s->hAvs3Dec,
+				NULL,
+				avpkt->data,
+				avpkt->size,
+				1,
+				NULL,
+				NULL)) {
+			return AVERROR_INVALIDDATA;
+		}
 
-    output_buf = (short *)av_malloc(frame_len * n_channels * sizeof(short));
-    if (!output_buf) return AVERROR(ENOMEM);
+		s->sample_rate = s->hAvs3Dec->outputFs;
+		s->channels = s->hAvs3Dec->numChansOutput;
+		s->frame_size = s->hAvs3Dec->frameLength;
 
-    Avs3Decode(s->hAvs3Dec, output_buf);
-    frame->nb_samples = frame_len;
-    if ((ret = ff_get_buffer(avctx, frame, 0)) < 0) {
-        av_free(output_buf);
-        return ret;
-    }
+		avctx->frame_size = s->frame_size;
+		avctx->sample_rate = s->sample_rate;
 
-    for (int ch = 0; ch < n_channels; ch++) {
-        int16_t *dst = (int16_t *)frame->extended_data[ch];
-        for (int i = 0; i < frame_len; i++)
-            dst[i] = output_buf[i * n_channels + ch];
-    }
+		av_channel_layout_uninit(&avctx->ch_layout);
 
-    av_free(output_buf);
-    if (s->hAvs3Dec->hBitstream) ResetBitstream(s->hAvs3Dec->hBitstream);
-    *got_frame = 1;
-    return avpkt->size;
+		switch (s->hAvs3Dec->channelNumConfig) {
+			case CHANNEL_CONFIG_MONO:
+				av_channel_layout_from_mask(
+					&avctx->ch_layout,
+					AV_CH_LAYOUT_MONO);
+				break;
+	
+			case CHANNEL_CONFIG_STEREO:
+				av_channel_layout_from_mask(
+					&avctx->ch_layout,
+					AV_CH_LAYOUT_STEREO);
+				break;
+	
+			case CHANNEL_CONFIG_MC_4_0:
+				av_channel_layout_from_mask(
+					&avctx->ch_layout,
+					AV_CH_LAYOUT_4POINT0);
+				break;
+	
+			case CHANNEL_CONFIG_MC_5_1:
+				av_channel_layout_from_mask(
+					&avctx->ch_layout,
+					AV_CH_LAYOUT_5POINT1);
+				break;
+	
+			case CHANNEL_CONFIG_MC_7_1:
+				av_channel_layout_from_mask(
+					&avctx->ch_layout,
+					AV_CH_LAYOUT_7POINT1);
+				break;
+	
+			case CHANNEL_CONFIG_MC_5_1_2:
+				av_channel_layout_from_mask(
+					&avctx->ch_layout,
+					AV_CH_LAYOUT_5POINT1POINT2_BACK);
+				break;
+	
+			case CHANNEL_CONFIG_MC_5_1_4:
+				av_channel_layout_from_mask(
+					&avctx->ch_layout,
+					AV_CH_LAYOUT_5POINT1POINT4_BACK);
+				break;
+	
+			case CHANNEL_CONFIG_MC_7_1_2:
+				av_channel_layout_from_mask(
+					&avctx->ch_layout,
+					AV_CH_LAYOUT_7POINT1POINT2);
+				break;
+	
+			case CHANNEL_CONFIG_MC_7_1_4:
+				av_channel_layout_from_mask(
+					&avctx->ch_layout,
+					AV_CH_LAYOUT_7POINT1POINT4_BACK);
+				break;
+	
+			default:
+				av_channel_layout_default(
+					&avctx->ch_layout,
+					s->channels);
+				break;
+        }
+
+		s->header_parsed = 1;
+	}
+
+    if (!s->initialized) {
+		/*
+		 * During libavformat probing, the temporary decoder
+		 * may not have a model path.
+		 */
+		if (!s->av3a_model_path ||
+			s->av3a_model_path[0] == '\0') {
+#ifdef _WIN32
+			if (avs3a_open_model(avctx, s) < 0) {
+				*got_frame = 0;
+				return avpkt->size;
+			}
+#else
+			*got_frame = 0;
+			return avpkt->size;
+#endif
+		}
+		/*
+		 * Initialize the AVS3 decoder using the opened model.
+		 *
+		 * Avs3InitDecoder() may consume/replace the model handle.
+		 */
+		ret = avs3a_open_model(avctx, s);
+		if (ret < 0) return ret;
+		Avs3InitDecoder(s->hAvs3Dec, &s->fModel);
+		if (s->fModel) {
+			fclose(s->fModel);
+			s->fModel = NULL;
+		}
+
+		s->initialized = 1;
+	}
+
+	/*
+	 * Read and parse the current AVS3A frame directly from the packet.
+	 */
+	if (!ReadBitstreamMemory(
+			s->hAvs3Dec,
+			avpkt->data,
+			avpkt->size)) {
+		return AVERROR_INVALIDDATA;
+	}
+
+	n_channels = s->hAvs3Dec->numChansOutput;
+	frame_len = s->hAvs3Dec->frameLength;
+
+	if (n_channels <= 0 ||
+		n_channels > MAX_CHANNELS ||
+		frame_len <= 0 ||
+		frame_len > FRAME_LEN) {
+		return AVERROR_INVALIDDATA;
+	}
+
+	frame->nb_samples = frame_len;
+
+	if ((ret = ff_get_buffer(avctx, frame, 0)) < 0) {
+		return ret;
+	}
+
+	av_channel_layout_copy(&frame->ch_layout, &avctx->ch_layout);
+
+	short *output_planes[MAX_CHANNELS] = {0};
+
+	for (int ch = 0; ch < n_channels; ch++) {
+		output_planes[ch] =
+			(short *)frame->extended_data[ch];
+	}
+
+	/*
+	 * Decode directly into AVFrame's planar S16 buffers.
+	 */
+	Avs3DecodePlanar(
+		s->hAvs3Dec,
+		output_planes);
+
+	if (s->hAvs3Dec->hBitstream) {
+		ResetBitstream(s->hAvs3Dec->hBitstream);
+	}
+
+	*got_frame = 1;
+	return avpkt->size;
 }
 
 static av_cold int avs3a_decode_close(AVCodecContext *avctx)
@@ -170,7 +311,7 @@ static av_cold int avs3a_decode_close(AVCodecContext *avctx)
 #define OFFSET(x) offsetof(AVS3ADecoderContext, x)
 #define AD AV_OPT_FLAG_AUDIO_PARAM | AV_OPT_FLAG_DECODING_PARAM
 static const AVOption avs3a_options[] = {
-    { "model_path", "Path to model.bin", OFFSET(model_path), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, AD },
+    { "av3a_model_path", "Path to model.bin", OFFSET(av3a_model_path), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, AD },
     { NULL },
 };
 

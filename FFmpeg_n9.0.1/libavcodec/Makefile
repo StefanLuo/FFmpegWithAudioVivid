@@ -46,7 +46,6 @@ OBJS = ac3_parser.o                                                     \
        exif.o                                                           \
        get_buffer.o                                                     \
        imgconvert.o                                                     \
-       fmtconvert.o                                                     \
        jni.o                                                            \
        mathtables.o                                                     \
        mediacodec.o                                                     \

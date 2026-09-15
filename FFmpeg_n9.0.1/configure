@@ -2777,6 +2777,7 @@ CONFIG_EXTRA="
     faandct
     faanidct
     fdctdsp
+    fmtconvert
     frame_thread_encoder
     g722dsp
     golomb
@@ -3126,8 +3127,8 @@ aac_decoder_select="adts_header mpeg4audio sinewin"
 aac_fixed_decoder_select="adts_header mpeg4audio"
 aac_encoder_select="audio_frame_queue lpc sinewin"
 aac_latm_decoder_select="aac_decoder aac_latm_parser"
-ac3_decoder_select="ac3_parser ac3dsp bswapdsp"
-ac3_fixed_decoder_select="ac3_parser ac3dsp bswapdsp"
+ac3_decoder_select="ac3_parser ac3dsp bswapdsp fmtconvert"
+ac3_fixed_decoder_select="ac3_parser ac3dsp bswapdsp fmtconvert"
 ac3_encoder_select="ac3dsp audiodsp me_cmp"
 ac3_fixed_encoder_select="ac3dsp audiodsp me_cmp"
 acelp_kelvin_decoder_select="audiodsp celp_math"

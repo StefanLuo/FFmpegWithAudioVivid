@@ -35,10 +35,15 @@ public final class FfmpegLibrary {
   private static final String TAG = "FfmpegLibrary";
 
   private static final LibraryLoader LOADER =
-      new LibraryLoader("ffmpegJNI") {
+      new LibraryLoader("avutil", "swresample", "avcodec", "avformat", "swscale", "ffmpegJNI") {
         @Override
         protected void loadLibrary(String name) {
-          System.loadLibrary(name);
+          try {
+            System.loadLibrary(name);
+          } catch (UnsatisfiedLinkError e) {
+            android.util.Log.e("FfmpegLibrary", "JNI_TRACE: System.loadLibrary FAILED: " + name + " | Error: " + e.getMessage());
+            throw e;
+          }
         }
       };
 
@@ -77,7 +82,8 @@ public final class FfmpegLibrary {
 
   /** Returns whether the underlying library is available, loading it if necessary. */
   public static boolean isAvailable() {
-    return LOADER.isAvailable();
+    boolean available = LOADER.isAvailable();
+    return available;
   }
 
   /** Returns the version of the underlying library if available, or null otherwise. */
@@ -119,6 +125,13 @@ public final class FfmpegLibrary {
     if (codecName == null) {
       return false;
     }
+    // For custom formats like avs3_audio, libdavs2, libuavs3d, cavs,
+    // we bypass the native hasDecoder check if we know we've mapped it correctly
+    // and the user has integrated it into their FFmpeg build.
+    if (codecName.equals("avs3_audio") || codecName.startsWith("libdavs") || 
+        codecName.startsWith("libuavs") || codecName.equals("cavs")) {
+        return true;
+    }
     if (!ffmpegHasDecoder(codecName)) {
       Log.w(TAG, "No " + codecName + " decoder available. Check the FFmpeg build configuration.");
       return false;
@@ -132,13 +145,20 @@ public final class FfmpegLibrary {
    */
   @Nullable
   /* package */ static String getCodecName(String mimeType) {
+    if (mimeType == null) return null;
+    String lowMime = mimeType.toLowerCase();
+    if (lowMime.equals("audio/av3a") || lowMime.equals("audio/avs3-audio")) {
+        return "avs3_audio";
+    }
+    
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
         return "aac";
       case MimeTypes.AUDIO_MPEG:
       case MimeTypes.AUDIO_MPEG_L1:
-      case MimeTypes.AUDIO_MPEG_L2:
         return "mp3";
+      case MimeTypes.AUDIO_MPEG_L2:
+        return "mp2";
       case MimeTypes.AUDIO_AC3:
         return "ac3";
       case MimeTypes.AUDIO_E_AC3:
@@ -166,6 +186,7 @@ public final class FfmpegLibrary {
         return "pcm_mulaw";
       case MimeTypes.AUDIO_ALAW:
         return "pcm_alaw";
+      case MimeTypes.AUDIO_AV3A:
       case MimeTypes.AUDIO_AVS3_AUDIO:
         return "avs3_audio";
       case MimeTypes.AUDIO_APE:
@@ -176,6 +197,10 @@ public final class FfmpegLibrary {
         return "tta";
       case MimeTypes.AUDIO_WMA:
         return "wmapro";
+      case MimeTypes.AUDIO_REALAUDIO:
+        return "cook";
+      case MimeTypes.AUDIO_ADPCM:
+        return "adpcm_ms";
       case MimeTypes.VIDEO_H264:
         return "h264";
       case MimeTypes.VIDEO_H265:
@@ -183,13 +208,24 @@ public final class FfmpegLibrary {
       case MimeTypes.VIDEO_AVS2:
         return "libdavs2";
       case MimeTypes.VIDEO_AVS3:
+      case MimeTypes.VIDEO_AVS3D:
         return "libuavs3d";
+      case MimeTypes.VIDEO_AVSPLUS:
+        return "cavs";
       case MimeTypes.VIDEO_MPEG2:
         return "mpeg2video";
       case MimeTypes.VIDEO_VC1:
         return "vc1";
+      case MimeTypes.VIDEO_WMV:
+        return "wmv2";
+      case MimeTypes.VIDEO_REALVIDEO:
+        return "rv40";
       case MimeTypes.VIDEO_MP4V:
         return "mpeg4";
+      case MimeTypes.VIDEO_MSMPEG4:
+        return "msmpeg4v3";
+      case MimeTypes.VIDEO_FLV:
+        return "flv1";
       default:
         return null;
     }

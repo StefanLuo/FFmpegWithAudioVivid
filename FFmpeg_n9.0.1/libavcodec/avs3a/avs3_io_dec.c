@@ -140,7 +140,6 @@ void GetAvs3DecoderCommandLine(AVS3DecoderHandle hAvs3Dec, const int argc, char 
     }
     else
     {
-        fprintf(stderr, "Error: Sampling rate is not supported in AVS3!\n");
         exit(-1);
     }
 #endif
@@ -170,14 +169,13 @@ void GetAvs3DecoderCommandLine(AVS3DecoderHandle hAvs3Dec, const int argc, char 
     /* Bitstream */
     if ((*fBitstream = fopen(bitstreamName, "rb")) == NULL)
     {
-        fprintf(stderr, "Error: Bitstream file %s can not be opened!\n", argv[i]);
         exit(-1);
     }
 
 #ifdef BS_HEADER_COMPAT
     /* Read bitstream file header info */
     if (*fBitstream) {
-        Avs3ParseBsFrameHeader(hAvs3Dec, *fBitstream, 1, NULL);
+        Avs3ParseBsFrameHeader(hAvs3Dec, *fBitstream, NULL, 0, 1, NULL, NULL);
     }
 #endif
 
@@ -207,14 +205,13 @@ void GetAvs3DecoderCommandLine(AVS3DecoderHandle hAvs3Dec, const int argc, char 
     {
         if ((*fBitstream = fopen(argv[i], "rb")) == NULL)
         {
-            fprintf(stderr, "Error: Bitstream file %s can not be opened!\n", argv[i]);
             exit(-1);
         }
 
 #ifdef BS_HEADER_COMPAT
         /* Read bitstream file header info */
         if (*fBitstream) {
-            Avs3ParseBsFrameHeader(hAvs3Dec, *fBitstream, 1, NULL);
+            Avs3ParseBsFrameHeader(hAvs3Dec, *fBitstream, NULL, 0, 1, NULL, NULL);
         }
 #endif
 

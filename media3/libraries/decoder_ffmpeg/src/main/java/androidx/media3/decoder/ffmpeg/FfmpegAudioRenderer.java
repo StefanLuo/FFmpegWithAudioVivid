@@ -20,6 +20,8 @@ import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_WI
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_UNSUPPORTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.File;
+
 import android.content.Context;
 import android.os.Handler;
 import androidx.annotation.Nullable;
@@ -132,17 +134,26 @@ public final class FfmpegAudioRenderer extends DecoderAudioRenderer<FfmpegAudioD
   @Override
   protected @C.FormatSupport int supportsFormatInternal(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
-    if (!FfmpegLibrary.isAvailable() || !MimeTypes.isAudio(mimeType)) {
+    if (!FfmpegLibrary.isAvailable()) {
       return C.FORMAT_UNSUPPORTED_TYPE;
-    } else if (!FfmpegLibrary.supportsFormat(mimeType)
-        || (!sinkSupportsFormat(format, C.ENCODING_PCM_16BIT)
-            && !sinkSupportsFormat(format, C.ENCODING_PCM_FLOAT))) {
-      return C.FORMAT_UNSUPPORTED_SUBTYPE;
-    } else if (format.cryptoType != C.CRYPTO_TYPE_NONE) {
-      return C.FORMAT_UNSUPPORTED_DRM;
-    } else {
-      return C.FORMAT_HANDLED;
     }
+    
+    if (!MimeTypes.isAudio(mimeType)) {
+        return C.FORMAT_UNSUPPORTED_TYPE;
+    }
+
+    String codecName = FfmpegLibrary.getCodecName(mimeType);
+
+    // Explicitly handle custom formats to ensure they are marked as HANDLED
+    if (mimeType.equalsIgnoreCase("audio/av3a") || 
+        mimeType.equalsIgnoreCase("audio/avs3-audio") ||
+        codecName != null) {
+      return format.cryptoType == C.CRYPTO_TYPE_NONE
+          ? C.FORMAT_HANDLED
+          : C.FORMAT_UNSUPPORTED_DRM;
+    }
+
+    return C.FORMAT_UNSUPPORTED_SUBTYPE;
   }
 
   @Override

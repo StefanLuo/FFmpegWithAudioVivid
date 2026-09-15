@@ -120,16 +120,6 @@ static void parse_avs2_seq_header(AVCodecParserContext *s, const uint8_t *buf,
     avctx->framerate.den =
         ff_avs2_frame_rate_tab[frame_rate_code].den;
     avctx->has_b_frames = FFMAX(avctx->has_b_frames, !low_delay);
-
-    av_log(avctx, AV_LOG_DEBUG,
-           "AVS2 parse seq HDR: profile %x, level %x, "
-           "width %d, height %d, "
-           "chroma %d, sample_precision %d bits, encoding_precision %d bits, "
-           "aspect_ratio 0x%x, framerate %d/%d, low_delay %d\n",
-           profile, level,
-           width, height,
-           chroma, precision[sample_precision], precision[encoding_precision],
-           aspect_ratio, avctx->framerate.num, avctx->framerate.den, low_delay);
 }
 
 static void parse_avs2_units(AVCodecParserContext *s, const uint8_t *buf,

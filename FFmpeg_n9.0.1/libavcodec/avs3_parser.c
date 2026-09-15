@@ -124,11 +124,6 @@ static void parse_avs3_nal_units(AVCodecParserContext *s, const uint8_t *buf,
 
             s->width  = s->coded_width = avctx->width;
             s->height = s->coded_height = avctx->height;
-
-            av_log(avctx, AV_LOG_DEBUG,
-                   "AVS3 parse seq HDR: profile %d; coded size: %dx%d; frame rate code: %d\n",
-                   profile, avctx->width, avctx->height, ratecode);
-
         } else if (buf[3] == AVS3_INTRA_PIC_START_CODE) {
             s->key_frame = 1;
             s->pict_type = AV_PICTURE_TYPE_I;

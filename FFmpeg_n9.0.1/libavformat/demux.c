@@ -584,15 +584,43 @@ static int handle_new_packet(AVFormatContext *s, AVPacket *pkt, int allow_passth
     av_assert0(pkt->stream_index < (unsigned)s->nb_streams &&
                "Invalid stream index.\n");
 
-    if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
-        av_log(s, AV_LOG_WARNING,
-               "Packet corrupt (stream = %d, dts = %s)%s.\n",
-               pkt->stream_index, av_ts2str(pkt->dts),
-               s->flags & AVFMT_FLAG_DISCARD_CORRUPT ? ", dropping it" : "");
-        if (s->flags & AVFMT_FLAG_DISCARD_CORRUPT) {
-            av_packet_unref(pkt);
-            return 1;
-        }
+    // if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
+	// 	AVStream *st = s->streams[pkt->stream_index];
+	// 	int is_av3a = st->codecpar->codec_id == AV_CODEC_ID_AVS3_AUDIO;
+    //     av_log(s, AV_LOG_DEBUG,
+    //            "Packet corrupt (stream = %d, dts = %s)%s.\n",
+    //            pkt->stream_index, av_ts2str(pkt->dts),
+    //            (s->flags & AVFMT_FLAG_DISCARD_CORRUPT) || is_av3a ? ", dropping it" : "");
+    //     if ((s->flags & AVFMT_FLAG_DISCARD_CORRUPT) || is_av3a) {
+    //         av_packet_unref(pkt);
+    //         return 1;
+    //     }
+    // }
+
+	if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
+		int has_av3a = 0;
+	
+		for (unsigned int i = 0; i < s->nb_streams; i++) {
+			AVStream *st = s->streams[i];
+	
+			if (st->codecpar &&
+				st->codecpar->codec_id == AV_CODEC_ID_AVS3_AUDIO) {
+				has_av3a = 1;
+				break;
+			}
+		}
+		
+		av_log(s, AV_LOG_DEBUG,
+           "Packet corrupt (stream = %d, dts = %s)%s.\n",
+           pkt->stream_index,
+           av_ts2str(pkt->dts),
+           (s->flags & AVFMT_FLAG_DISCARD_CORRUPT) || has_av3a
+               ? ", dropping it" : "");
+	
+		if ((s->flags & AVFMT_FLAG_DISCARD_CORRUPT) || has_av3a) {
+			av_packet_unref(pkt);
+			return 1;
+		}
     }
 
     st  = s->streams[pkt->stream_index];

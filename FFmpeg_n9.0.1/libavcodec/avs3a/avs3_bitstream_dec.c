@@ -35,6 +35,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#include <string.h>
+#include <stddef.h>
 #include "avs3_options.h"
 #include "avs3_rom_com.h"
 #include "avs3_stat_com.h"
@@ -60,15 +62,42 @@ void ResetBitstream(AVS3_BSTEREAM_DATA_DEC_HANDLE hBitstream)
 short Avs3ParseBsFrameHeader(
     AVS3DecoderHandle hAvs3Dec,
     FILE *fBitstream,
+    const uint8_t *data,
+    size_t data_size,
     int16_t isInitFrame,
-    uint16_t *crcBs
+    uint16_t *crcBs,
+    int32_t *headerBsBytes
 )
 {
     uint8_t headerBs[MAX_NBYTES_FRAME_HEADER];
-    uint32_t nextBitPos = 0;
+	uint32_t nextBitPos = 0;
 
-    // Read max header length into bs buffer
-    fread(headerBs, sizeof(uint8_t), MAX_NBYTES_FRAME_HEADER, fBitstream);
+	if (!hAvs3Dec || (!fBitstream && !data)) {
+		return AVS3_FALSE;
+	}
+
+	/*
+     * Read header.
+     *
+     * FILE mode:
+     *     fread from file
+     *
+     * Memory mode:
+     *     copy from AVPacket buffer
+     */
+	if (data) {
+		if (data_size < MAX_NBYTES_FRAME_HEADER) {
+			return AVS3_FALSE;
+		}
+
+		memset(headerBs,0,sizeof(headerBs));
+
+		memcpy(headerBs, data, MAX_NBYTES_FRAME_HEADER);
+	} else {
+		if (fread(headerBs, sizeof(uint8_t), MAX_NBYTES_FRAME_HEADER, fBitstream) != MAX_NBYTES_FRAME_HEADER) {
+			return AVS3_FALSE;
+		}
+	}
 
     // Sync word, 12 bits
     uint16_t syncWord;
@@ -185,18 +214,29 @@ short Avs3ParseBsFrameHeader(
     crcTmp += (uint16_t)GetNextIndice(headerBs, &nextBitPos, AVS3_BS_BYTE_SIZE);
 
     // rewind bs file if needed
-    if (isInitFrame == 1) {
-        // first frame, seek to file begin
-        fseek(fBitstream, 0, SEEK_SET);
-    } else {
-        // for mono/stereo/mc/hoa, header size 7 bytes, need rewind by 1 byte
-        // for mix, no need to rewind
-        int32_t headerBsBytes = (int32_t)(ceil((float)nextBitPos / 8));
-        if (headerBsBytes < MAX_NBYTES_FRAME_HEADER) {
+	/*
+     * Important:
+     *
+     * FILE mode:
+     *     restore FILE position
+     *
+     * Memory mode:
+     *     only report header length
+     */
+	int32_t parsedHeaderBytes = (int32_t)((nextBitPos + 7) / 8);
+
+    if(headerBsBytes){
+        *headerBsBytes = parsedHeaderBytes;
+    }
+
+    if (fBitstream) {
+        if (isInitFrame) {
+            fseek(fBitstream, 0, SEEK_SET);
+        } else if (parsedHeaderBytes < MAX_NBYTES_FRAME_HEADER) {
 #ifndef MIX_EXT
             fseek(fBitstream, -1, SEEK_CUR);
 #else
-            fseek(fBitstream, headerBsBytes - MAX_NBYTES_FRAME_HEADER, SEEK_CUR);
+            fseek(fBitstream, parsedHeaderBytes - MAX_NBYTES_FRAME_HEADER, SEEK_CUR);
 #endif
         }
     }
@@ -387,7 +427,9 @@ short Avs3ParseBsFrameHeader(
     // if not first frame
     if (isInitFrame == 0) {
         // copy crc bs
-        *crcBs = crcTmp;
+		if (crcBs) {
+			*crcBs = crcTmp;
+		}
 
         // update bitrate
         hAvs3Dec->lastTotalBrate = hAvs3Dec->totalBitrate;
@@ -447,12 +489,13 @@ short Avs3ParseBsFrameHeader(
 
 short ReadBitstream(AVS3DecoderHandle hAvs3Dec, FILE* fBitstream) 
 {
-    short bytesPerFrame = 0;
+    size_t bytesPerFrame = 0;
 
     uint8_t* bitstream = hAvs3Dec->hBitstream->bitstream;
 
 #ifdef CRC_CHECK
-    uint16_t crcBs, crcResult;          // crc info from BS and calculated at decoder
+	// crc info from BS and calculated at decoder
+    uint16_t crcBs, crcResult;
 #endif
 
     if (fBitstream == NULL) 
@@ -462,7 +505,18 @@ short ReadBitstream(AVS3DecoderHandle hAvs3Dec, FILE* fBitstream)
 
 #ifdef BS_HEADER_COMPAT
     /* Read frame header info */
-    Avs3ParseBsFrameHeader(hAvs3Dec, fBitstream, 0, &crcBs);
+    Avs3ParseBsFrameHeader(
+        hAvs3Dec,
+        fBitstream,
+        NULL,
+        0,
+        0,
+#ifdef CRC_CHECK
+        &crcBs,
+#else
+        NULL,
+#endif
+        NULL);
 #endif
 
     bytesPerFrame = (uint32_t)(ceil((float)hAvs3Dec->bitsPerFrame / 8));
@@ -473,6 +527,81 @@ short ReadBitstream(AVS3DecoderHandle hAvs3Dec, FILE* fBitstream)
 #ifdef CRC_CHECK
     /* CRC check */
     crcResult = Crc16(bitstream, bytesPerFrame);
+    if (crcResult != crcBs) {
+        return AVS3_FALSE;
+    }
+#endif
+
+    return AVS3_TRUE;
+}
+
+short ReadBitstreamMemory(AVS3DecoderHandle hAvs3Dec, const uint8_t *data, size_t data_size)
+{
+    uint8_t *bitstream;
+    size_t bytesPerFrame;
+    size_t payloadOffset;
+    int32_t headerBytes = 0;
+
+#ifdef CRC_CHECK
+    uint16_t crcBs = 0;
+	uint16_t crcResult;
+#endif
+
+    if (!hAvs3Dec || !hAvs3Dec->hBitstream || !data) {
+        return AVS3_FALSE;
+    }
+
+    /*
+     * Parse the current frame header directly from memory.
+     *
+     * This also updates bitsPerFrame and other per-frame decoder
+     * parameters exactly as the original FILE-based path does.
+     */
+    if (!Avs3ParseBsFrameHeader(
+            hAvs3Dec,
+            NULL,
+            data,
+            data_size,
+            0,
+#ifdef CRC_CHECK
+            &crcBs,
+#else
+            NULL,
+#endif
+            &headerBytes)) {
+        return AVS3_FALSE;
+    }
+	/*
+     * bitsPerFrame has already been updated by the header parser.
+     */
+    if (hAvs3Dec->bitsPerFrame <= 0) {
+        return AVS3_FALSE;
+    }
+
+	bytesPerFrame = (size_t)((hAvs3Dec->bitsPerFrame + 7) / 8);
+
+	/*
+     * payload starts after header
+     */
+    payloadOffset = headerBytes;
+
+	/*
+     * Make sure the complete payload is inside the packet.
+     */
+    if (payloadOffset > data_size ||
+        bytesPerFrame > data_size - payloadOffset) {
+        return AVS3_FALSE;
+    }
+
+	bitstream = hAvs3Dec->hBitstream->bitstream;
+
+	memset(bitstream, 0, MAX_BS_BYTES);
+
+    memcpy(bitstream, data + payloadOffset, bytesPerFrame);
+
+#ifdef CRC_CHECK
+    crcResult = Crc16(bitstream, bytesPerFrame);
+
     if (crcResult != crcBs) {
         return AVS3_FALSE;
     }

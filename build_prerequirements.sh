@@ -6,18 +6,20 @@
 
 echo "=== [1/5] 正在安装基础开发工具链 ==="
 # 仅安装必需的二进制包，不更改镜像设置
+# 已在此处精准补全了 Android 编译依赖（libdav1d, fribidi, harfbuzz）所必需的 meson 和 ninja 工具
 pacman -S --needed --noconfirm \
-    mingw-w64-x86_64-toolchain yasm nasm make pkg-config diffutils git cmake \
-    mingw-w64-x86_64-x264 mingw-w64-x86_64-x265 mingw-w64-x86_64-libvpx \
-    mingw-w64-x86_64-lame mingw-w64-x86_64-opus mingw-w64-x86_64-libvorbis \
-    mingw-w64-x86_64-SDL2 mingw-w64-x86_64-libass mingw-w64-x86_64-zimg \
-    mingw-w64-x86_64-libplacebo mingw-w64-x86_64-vulkan-loader mingw-w64-x86_64-shaderc \
-    mingw-w64-x86_64-ffnvcodec-headers mingw-w64-x86_64-libvpl \
-    mingw-w64-x86_64-openssl mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libbluray \
-    mingw-w64-x86_64-cmake
+	mingw-w64-x86_64-toolchain yasm nasm make pkg-config diffutils git cmake \
+	mingw-w64-x86_64-x264 mingw-w64-x86_64-x265 mingw-w64-x86_64-libvpx \
+	mingw-w64-x86_64-lame mingw-w64-x86_64-opus mingw-w64-x86_64-libvorbis \
+	mingw-w64-x86_64-SDL2 mingw-w64-x86_64-libass mingw-w64-x86_64-zimg \
+	mingw-w64-x86_64-libplacebo mingw-w64-x86_64-vulkan-loader mingw-w64-x86_64-shaderc \
+	mingw-w64-x86_64-ffnvcodec-headers mingw-w64-x86_64-libvpl \
+	mingw-w64-x86_64-openssl mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libbluray \
+	mingw-w64-x86_64-cmake mingw-w64-x86_64-meson mingw-w64-x86_64-ninja \
+	mingw-w64-x86_64-python-jinja
 
-BASE_DIR="/e/BaiduNetdiskDownload/FFmpegProject"
-cd $BASE_DIR
+BASE_DIR="/e/CodeProject/FFmpegProject"
+cd "$BASE_DIR"
 
 echo "=== [2/5] 正在从本地源码编译 libdavs2 (10-bit) ==="
 if [ -d "davs2" ]; then
@@ -29,7 +31,7 @@ else
 fi
 
 echo "=== [3/5] 正在从本地源码编译 libxavs2 ==="
-cd $BASE_DIR
+cd "$BASE_DIR"
 if [ -d "xavs2" ]; then
     cd xavs2/build/linux
     ./configure --prefix=/mingw64 --enable-shared
@@ -51,7 +53,7 @@ else
 fi
 
 echo "=== [4/5] 正在从本地源码编译 libuavs3d (AVS3 解码) ==="
-cd $BASE_DIR
+cd "$BASE_DIR"
 if [ -d "uavs3d" ]; then
     cd uavs3d
     rm -rf build_msys && mkdir build_msys && cd build_msys
@@ -66,7 +68,7 @@ else
 fi
 
 echo "=== [5/5] 正在从本地源码编译 libuavs3e (AVS3 编码) ==="
-cd $BASE_DIR
+cd "$BASE_DIR"
 if [ -d "uavs3e" ]; then
     cd uavs3e
     rm -rf build_msys && mkdir build_msys && cd build_msys

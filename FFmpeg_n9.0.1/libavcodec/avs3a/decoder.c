@@ -64,7 +64,6 @@ int avs3_decoder(int argc, char* argv[])
 
     if ((hAvs3Dec = (AVS3DecoderHandle)malloc(sizeof(AVS3Decoder))) == NULL)
     {
-        fprintf(stderr, "Can not allocate memory for AVS3 decoder structure!\n");
         exit(-1);
     }
 
@@ -76,8 +75,6 @@ int avs3_decoder(int argc, char* argv[])
 
     while ((ret = ReadBitstream(hAvs3Dec, fBitstream)) != 0)
     {
-        fprintf(stdout, "%-8ld\b\b\b\b\b\b\b\b", frame);
-
         Avs3Decode(hAvs3Dec, data);
 
         ResetBitstream(hAvs3Dec->hBitstream);
@@ -88,8 +85,6 @@ int avs3_decoder(int argc, char* argv[])
     }
 
     SynthWavHeader(fOutput);
-
-    fprintf(stdout, "Decoding of %ld frames finished\n\n", frame);
 
     if (fBitstream) {
         fclose(fBitstream);

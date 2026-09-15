@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "libavutil/log.h"
 #include "avs3_stat_dec.h"
 #include "avs3_prot_dec.h"
 #include "avs3_prot_com.h"
@@ -115,12 +116,17 @@ void Avs3McDec(AVS3DecoderHandle hAvs3Dec, float synth[MAX_CHANNELS][FRAME_LEN])
 #else
     Avs3InverseQC(hAvs3Dec, nChans);
 #endif
-
     Avs3McacDec(hMcdec);
 
     for (i = 0; i < nChans; i++)
     {
         hDecCore = hAvs3Dec->hDecCore[i];
+		
+		// fprintf(stderr,
+        //     "AVS3 MC CHANNEL: ch=%d transformType=%d numGroups=%d\n",
+        //     i,
+        //     hDecCore->transformType,
+        //     hDecCore->numGroups);
 
 #ifdef MC_LFE_PROC
         isLfe = 0;
@@ -129,7 +135,7 @@ void Avs3McDec(AVS3DecoderHandle hAvs3Dec, float synth[MAX_CHANNELS][FRAME_LEN])
         }
 #endif
 
-        // post synthesis, including bwe, tns, fd shaping, degrouping and inv MDCT
+// post synthesis, including bwe, tns, fd shaping, degrouping and inv MDCT
 #ifndef MC_LFE_PROC
         Avs3PostSynthesis(hDecCore, synth[i]);
 #else

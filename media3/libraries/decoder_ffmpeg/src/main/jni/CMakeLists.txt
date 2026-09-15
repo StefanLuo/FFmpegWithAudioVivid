@@ -26,6 +26,11 @@ project(libffmpegJNI C CXX)
 set(ffmpeg_location "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg")
 set(ffmpeg_binaries "${ffmpeg_location}/android-libs/${ANDROID_ABI}")
 
+# 优先引用架构专属的安装版头文件（包含正确的 config.h）
+include_directories(${ffmpeg_binaries}/include)
+# 兜底引用 FFmpeg 源码目录
+include_directories(${ffmpeg_location})
+
 foreach(ffmpeg_lib avutil swresample avcodec avformat swscale)
     set(ffmpeg_lib_filename lib${ffmpeg_lib}.so)
     set(ffmpeg_lib_file_path ${ffmpeg_binaries}/${ffmpeg_lib_filename})

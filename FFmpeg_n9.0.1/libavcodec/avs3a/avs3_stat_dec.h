@@ -131,6 +131,15 @@ typedef struct avs3_dec_core_structure
     NeuralQcData neuralQcData;
 
     AVS3_CORE_CONFIG_DATA_HANDLE hCoreConfig;
+	
+	/* Reusable synthesis work buffers. */
+    float winLeft[BLOCK_LEN_LONG];
+    float winRight[BLOCK_LEN_LONG];
+    float tdaSignal[BLOCK_LEN_LONG * 2];
+
+    float tmpSynthBuffer[BLOCK_LEN_SHORT];
+    float winShort[BLOCK_LEN_SHORT * 2];
+    float tmpSynth[FRAME_LEN];
 
 }AVS3_DEC_CORE_DATA, *AVS3_DEC_CORE_HANDLE;
 
@@ -168,6 +177,8 @@ typedef struct avs3_main_decoder_structure
     short bitDepth;                                 // bit depth or resolution of audio signal, 16/24
     long  totalBitrate;
     long  lastTotalBrate;
+	float synth[MAX_CHANNELS][FRAME_LEN];
+	float featureOut[FRAME_LEN][2];
 #ifdef BS_HEADER_COMPAT
     ChannelNumConfig channelNumConfig;              // channel number config, for bitrate table selection
 #endif

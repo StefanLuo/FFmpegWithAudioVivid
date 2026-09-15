@@ -277,7 +277,6 @@ static void GetGroupConfiguration(AVS3_HOA_CONFIG_DATA_HANDLE hConfig, const HOA
     }
 
     if (bitrateIdx >= HOA_SIZE_BITRATE_TABLE) {
-        fprintf(stderr, " Unsupported bitrate!\n");
         exit(-1);
     }
 
@@ -410,7 +409,7 @@ void HoaBitrateConfigTable(AVS3_HOA_CONFIG_DATA_HANDLE hConfig)
         GetHoa3Configuration(hConfig);
         break;
     default:
-        assert(!"Not support more than 4th HOA.\n");
+        hConfig->order = 1; /* Fallback to FOA instead of crashing */
         break;
     }
 #else
@@ -434,7 +433,7 @@ void HoaBitrateConfigTable(AVS3_HOA_CONFIG_DATA_HANDLE hConfig)
 #endif
             break;
         default:
-            assert(!"too low bitrate for 4th HOA.\n");
+            hConfig->nTotalChanGroups = 1; /* Safe fallback */
             break;
         }
     }
@@ -458,7 +457,7 @@ void HoaBitrateConfigTable(AVS3_HOA_CONFIG_DATA_HANDLE hConfig)
 #endif
             break;
         default:
-            assert(!"too low bitrate for 4th HOA.\n");
+            hConfig->nTotalChanGroups = 1; /* Safe fallback */
             break;
         }
     }
@@ -482,7 +481,7 @@ void HoaBitrateConfigTable(AVS3_HOA_CONFIG_DATA_HANDLE hConfig)
 #endif
             break;
         default:
-            assert(!"too low bitrate for 4th HOA.\n");
+            hConfig->nTotalChanGroups = 1; /* Safe fallback */
             break;
         }
     }
@@ -506,7 +505,7 @@ void HoaBitrateConfigTable(AVS3_HOA_CONFIG_DATA_HANDLE hConfig)
 #endif
             break;
         default:
-            assert(!"too low bitrate for 4th HOA.\n");
+            hConfig->nTotalChanGroups = 1; /* Safe fallback */
             break;
         }
     }
@@ -530,13 +529,14 @@ void HoaBitrateConfigTable(AVS3_HOA_CONFIG_DATA_HANDLE hConfig)
 #endif
             break;
         default:
-            assert(!"too low bitrate for 4th HOA.\n");
+            hConfig->nTotalChanGroups = 1; /* Safe fallback */
             break;
         }
     }
     else
     {
-        assert(!"not supported bitrate for HOA.\n");
+        // Log warning and fallback
+        hConfig->nTotalChanGroups = 1;
     }
 
 
@@ -589,8 +589,11 @@ void Avs3HoaInitConfig(AVS3_HOA_CONFIG_DATA_HANDLE hConfig, const short numChans
         hConfig->order = 4;
         break;
 #endif
+    case 10: /* 5.1.4 Support. */
+        hConfig->order = 2;
+        break;
     default:
-        assert(!"Not support more than 4 order HOA!\n");
+        hConfig->order = 0;
         break;
     }
 

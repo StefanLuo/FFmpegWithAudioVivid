@@ -69,6 +69,11 @@ public final class MimeTypes {
   @UnstableApi public static final String VIDEO_MV_HEVC = BASE_TYPE_VIDEO + "/mv-hevc";
   @UnstableApi public static final String VIDEO_AVS2 = BASE_TYPE_VIDEO + "/avs2";
   @UnstableApi public static final String VIDEO_AVS3 = BASE_TYPE_VIDEO + "/avs3";
+  @UnstableApi public static final String VIDEO_AVSPLUS = BASE_TYPE_VIDEO + "/avsplus";
+  @UnstableApi public static final String VIDEO_AVS3D = BASE_TYPE_VIDEO + "/avs3d";
+  @UnstableApi public static final String VIDEO_REALVIDEO = BASE_TYPE_VIDEO + "/x-pn-realvideo";
+  @UnstableApi public static final String VIDEO_WMV = BASE_TYPE_VIDEO + "/x-ms-wmv";
+  @UnstableApi public static final String VIDEO_MSMPEG4 = BASE_TYPE_VIDEO + "/x-msmpeg4";
   @UnstableApi public static final String VIDEO_RAW = BASE_TYPE_VIDEO + "/raw";
   @UnstableApi public static final String VIDEO_UNKNOWN = BASE_TYPE_VIDEO + "/x-unknown";
 
@@ -79,6 +84,7 @@ public final class MimeTypes {
   @UnstableApi public static final String AUDIO_MATROSKA = BASE_TYPE_AUDIO + "/x-matroska";
   public static final String AUDIO_WEBM = BASE_TYPE_AUDIO + "/webm";
   public static final String AUDIO_MPEG = BASE_TYPE_AUDIO + "/mpeg";
+  public static final String AUDIO_AV3A = BASE_TYPE_AUDIO + "/av3a";
   public static final String AUDIO_MPEG_L1 = BASE_TYPE_AUDIO + "/mpeg-L1";
   public static final String AUDIO_MPEG_L2 = BASE_TYPE_AUDIO + "/mpeg-L2";
   public static final String AUDIO_MPEGH_MHA1 = BASE_TYPE_AUDIO + "/mha1";
@@ -117,6 +123,8 @@ public final class MimeTypes {
   public static final String AUDIO_MIDI = BASE_TYPE_AUDIO + "/midi";
   @UnstableApi public static final String AUDIO_IAMF = BASE_TYPE_AUDIO + "/iamf";
   @UnstableApi public static final String AUDIO_AVS3_AUDIO = BASE_TYPE_AUDIO + "/avs3-audio";
+  @UnstableApi public static final String AUDIO_REALAUDIO = BASE_TYPE_AUDIO + "/x-pn-realaudio";
+  @UnstableApi public static final String AUDIO_ADPCM = BASE_TYPE_AUDIO + "/x-adpcm";
   @UnstableApi public static final String AUDIO_APE = BASE_TYPE_AUDIO + "/x-ape";
   @UnstableApi public static final String AUDIO_WAVPACK = BASE_TYPE_AUDIO + "/x-wavpack";
   @UnstableApi public static final String AUDIO_TTA = BASE_TYPE_AUDIO + "/x-tta";

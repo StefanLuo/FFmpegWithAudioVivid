@@ -125,6 +125,10 @@ public final class TsExtractor implements Extractor {
 
   public static final int TS_STREAM_TYPE_MPA = 0x03;
   public static final int TS_STREAM_TYPE_MPA_LSF = 0x04;
+  public static final int TS_STREAM_TYPE_AV3A = 0xD5;
+  public static final int TS_STREAM_TYPE_AVS2 = 0xD2;
+  public static final int TS_STREAM_TYPE_AVS3 = 0xD4;
+  public static final int TS_STREAM_TYPE_CAVS = 0x42;
   public static final int TS_STREAM_TYPE_AAC_ADTS = 0x0F;
   public static final int TS_STREAM_TYPE_AAC_LATM = 0x11;
   public static final int TS_STREAM_TYPE_AC3 = 0x81;

@@ -37,6 +37,7 @@
 #include <assert.h>
 #include <math.h>
 
+#include "libavutil/log.h"
 #include "avs3_options.h"
 #include "avs3_cnst_com.h"
 #include "avs3_prot_com.h"
@@ -160,7 +161,6 @@ void Avs3McacDec(
     AVS3_MC_PAIR_DATA_HANDLE hPair;
 
     for (pair = hMcac->pairCnt - 1; pair >= 0; pair--) {
-
         hPair = &(hMcac->hPair[pair]);
         MsUpmix(hMcac->mcSpectrum[hPair->ch1], hMcac->mcSpectrum[hPair->ch2], FRAME_LEN);
     }
